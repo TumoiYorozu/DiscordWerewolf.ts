@@ -1,0 +1,7 @@
+build/
+node_modules/
+*local_private/
+.vscode/
+
+media/dova_syndrome_BGMs/
+server_settings/dova_syndrome_BGMs.json5

@@ -1,0 +1,184 @@
+body {
+  background-color: #130606;
+  color: #e7e6e6;
+  max-width: 800px;
+}
+
+.timer {
+  text-align: center;
+  width: 100%;
+  font-size: 180%;
+}
+
+.state {
+  text-align: center;
+  width: 100%;
+  font-size: 180%;
+}
+.circleStates {
+  font-size: 160%;
+  left     : 150px;
+  top      : 150px;
+}
+
+.circleBase {
+  position: absolute;
+  left      : 0;
+  top       : 0;
+}
+
+.members {
+  width: 100%;
+  min-width: 150px;
+  padding: 2.5% 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.circle_member {
+  position: absolute;
+  width: 150px;
+  height: 200px;
+  margin: 2px;
+}
+
+.member {
+  position: relative;
+  width: 150px;
+  height: 200px;
+  margin: 2px;
+}
+
+.call_arrow {
+  position: absolute;
+  width:  100%;
+  height: 100%;
+}
+.avatar {
+  width: 128px;
+  height: 128px;
+  border-radius: 20%;
+  border: 5px solid #000000;
+  filter: brightness(100%);
+  transform: translate(5.5px, 15%);
+}
+
+.speak .avatar {
+  border: 5px solid #00cc00;
+  animation: key1 .35s ease alternate;
+  animation-fill-mode: forwards;
+}
+
+.nospeak .avatar {
+  border: 5px solid #555555;
+  filter: brightness(40%);
+}
+
+@keyframes key1 {
+  0% {
+    transform: translate(5.5px, 15%);
+  }
+
+  60% {
+    transform: translate(5.5px, 0%);
+  }
+
+  100% {
+    transform: translate(5.5px, 15%);
+  }
+}
+
+.dead .avatar {
+  filter: brightness(100%);
+}
+
+.kill .avatar {
+  filter: brightness(100%);
+}
+
+.co {
+  width:  48px;
+  height: 48px;
+  border-radius: 50%;
+  position: absolute;
+  top:  152px;
+  left: 0%;
+}
+.dead .co {
+  filter: sepia(100%) brightness(50%);
+}
+.kill .co {
+  filter: sepia(100%) brightness(50%);
+}
+.fin .co {
+  filter: sepia(0%) brightness(35%);
+}
+
+.role {
+  width:  48px;
+  height: 48px;
+  border-radius: 50%;
+  position: absolute;
+  top:  12%;
+  left: 102px;
+}
+
+.avatar img {
+  width: 128px;
+  height: 128px;
+  border-radius: 20%;
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+}
+
+.dead .avatar img {
+  filter: sepia(100%) brightness(30%);
+}
+
+.kill .avatar img {
+  filter: sepia(100%) brightness(30%);
+}
+
+.dead_overlay {
+  opacity: 0;
+}
+
+.dead .dead_overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.6;
+}
+
+.kill_overlay {
+  opacity: 0;
+}
+
+.kill .kill_overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.7;
+}
+
+.aname {
+  position: absolute;
+  min-width: 66px;
+  top:  83%;
+  left: 42px;
+  /* transform: translate(-50%, -50%); */
+  text-align:center;
+  margin: 0;
+  padding: 0;
+  color: #eeeeee;
+  background: #222222;
+  font-size: 120%;
+}

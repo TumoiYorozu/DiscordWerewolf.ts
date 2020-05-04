@@ -1,0 +1,350 @@
+{
+    game : {
+        room_Werewolf    : "人狼役職",
+        room_GameLog     : "ゲームログ",
+        room_DebugLog    : "デバッグログ",
+        room_Living      : "生存者チャット",
+        room_LivingVoice : "生存者",
+        room_Dead        : "霊界チャット",
+        room_DeadVoice   : "霊界"
+    },
+    sys : {
+        cmd_make_room     : ["make_room"],
+        cmd_link_voice    : ["^linkVoice"],
+        cmd_unlink_voice  : ["^unlinkVoice"],
+        cmd_list_GM       : ["^listGM", "^listgm"],
+        cmd_list_Dev      : ["^listDev", "^listdev"],
+        cmd_add_GM        : ["^addGM"],
+        cmd_add_Dev       : ["^addDev"],
+        cmd_rm_GM         : ["^rmGM"],
+        cmd_rm_Dev        : ["^rmDev"],
+        cmd_role_num      : ["^RoleNum"],
+        cmd_reload_rule   : ["^reload_rule"],
+        cmd_member_list   : ["参加者", "^list"],
+
+
+        cmd_update_perm  : ["^update_perm"],
+        cmd_stop_timer   : ["タイマー停止", "^stop", "^pause"],　// タイマー停止
+        cmd_resume_timer : ["タイマー再開", "^resume"],        // タイマー再開
+        cmd_extend_time  : ["^extend_time"],   // 時間延長希望
+        cmd_cut_time     : ["^cut_time"],      // 時短延長希望
+
+        cmd_addtime     : ["^extend"],
+
+        sym_err       : ":x:",
+        sym_warn      : ":warning:",
+        sym_info      : ":information_source:",
+
+        sys_need_GM_perm   : "この操作には GM 権限が必要です",
+        sys_need_Dev_perm  : "この操作には デベロッパー 権限が必要です",
+        sys_GM_list_title  : "現在の GM リスト",
+        sys_Dev_list_title : "現在の デベロッパーリスト",
+        sys_start_browser  : "ブラウザモニターを開始しました",
+
+        system_color      : 0xAe00ff,
+        system_err_color  : 0xFF2A18,
+        system_warn_color : 0xFDFF54,
+        system_info_color : 0x02D7FF,
+
+        killed_color    : 0xf20a0a,
+        no_killed_color : 0x9bfaf8,
+
+        user_room_name : "個人・{user}",
+
+        GM_added    : "GM が追加されました．現在次の方が GM です : ",
+        Dev_added   : "デベロッパー が追加されました．デベロッパーになると全員の役職情報などにアクセスできます．現在次の方が デベロッパー です : ",
+        GM_removed  : "GM が減りました．現在次の方が GM です : ",
+        Dev_removed : "デベロッパー が減りました．現在次の方が デベロッパー です : ",
+        Need_at_least_1_GM  : "GM は最低 1 人必要です",
+
+        Link_Voice      : "ボイスチャンネルがリンクされました！",
+        Link_Voice_Err  : "ボイスチャンネルのリンクに失敗しました",
+        Unlink_Voice    : "ボイスチャンネルのリンクを終了しました",
+
+        stop_timer        : "タイマーが停止されました．現在 {time} です．再開するには「{cmd}」と言ってください",
+        restart_timer     : "タイマーを再開しました．現在 {time} です．",
+        no_timer          : "現在稼働中のタイマーはありません．",
+
+        Current_role_breakdown       : "現在のルール設定は，以下の通りです．",
+        Current_role_breakdown_sum   : "合計 : {num} 人",
+        Current_join_member_num      : "現在の参加者：{num} 人",
+
+        time_formatMS  : "{min}分{sec}秒",
+        time_formatM   : "{min}分",
+        time_formatS   : "{sec}秒",
+        remaining_time : "残り {time} です",
+        time_is_up     : "時間切れです",
+
+        dead           : "あなたは死亡し，ゲームから退場しました．",
+        welcome_dead   : "{user} さんは死亡し，霊界へやってきました．",
+        no_result      : "（結果なし）",
+    },
+    role : {
+        Villager  : "村人",
+        Seer      : "占い師",
+        Priest    : "霊能",
+        Knight    : "騎士",
+        Werewolf  : "人狼",
+        Traitor   : "狂人",
+        Mason     : "双子",
+        Dictator  : "独裁者",
+        Baker     : "パン屋",
+        Communicatable : "ささやく狂人"
+    },
+    emo : {
+        Villager  : ":man:",
+        Seer      : ":man_mage:",
+        Priest    : ":woman_with_headscarf:",
+        Knight    : ":crossed_swords:",
+        Werewolf  : ":wolf:",
+        Traitor   : ":smiling_imp:",
+        Mason     : ":people_holding_hands:",
+        Dictator  : ":triumph:",
+        Baker     : ":bread:",
+        Communicatable : ":genie:"
+    },
+    // https://twemoji.maxcdn.com/2/test/preview.html
+    role_img : {
+        Villager       : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f468-1f3fc.png",
+        Seer           : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png",
+        Priest         : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d5.png",
+        Knight         : "https://twemoji.maxcdn.com/v/12.1.5/72x72/2694.png",
+        Werewolf       : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f43a.png",
+        Traitor        : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f608.png",
+        Mason          : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f46c.png",
+        Dictator       : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f624.png",
+        Baker          : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f35e.png",
+        Communicatable : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9de-200d-2642-fe0f.png",
+    },
+    role_uni : {
+        Villager       : "👨",
+        Seer           : "🧙‍♂️",
+        Priest         : "🧕",
+        Knight         : "⚔️",
+        Werewolf       : "🐺",
+        Traitor        : "😈",
+        Mason          : "🧑‍🤝‍🧑",
+        Dictator       : "😤",
+        Baker          : "🍞",
+        Communicatable : "🧞",
+    },
+    role_descs : {
+        Villager       : "なんの能力も持たないただの人です．",
+        Seer           : "毎晩，生存者1人を「人狼」か「人狼でない」かを占うことが出来ます．",
+        Priest         : "昨晩の処刑者が「人狼」か「人狼でない」かを知ることが出来ます．",
+        Knight         : "自分以外の生存者を指定して人狼の襲撃から守ることができます．しかし自分自身は守れません．",
+        Werewolf       : "毎晩，生存者1人を襲撃することが出来ます",
+        Traitor        : "人狼陣営が勝利することで自身も勝利できます．",
+        Mason          : "ペア同士，相手が双子であることが分かります．",
+        Dictator       : "1度だけ昼の議論を即刻中止し，自分1人だけで処刑者を決定することが出来ます．",
+        Baker          : "生存している限り，朝にパンを配達します．",
+        Communicatable : "人狼チャットで人狼とコミュニケーションすることが出来ます．"
+    },
+
+    team_name : {
+        Good  : "村人陣営",
+        Evil  : "人狼陣営",
+        Other : "その他陣営"
+    },
+    team_emo : {
+        Good  : ":man:",
+        Evil  : ":wolf:",
+        Other : ":fox:",
+        White : ":flag_white:",
+        Black : ":flag_black:",
+        Unknown : ":question:",
+    },
+    team_img : {
+        Good       : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f468-1f3fc.png",
+        Evil       : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f43a.png",
+        Other      : "",
+    },
+    team_color : {
+        Good  : 0xfbf9f0, // 白
+        Evil  : 0x2b2000, // 黒
+        Other : 0xf7fa37, // 黄
+    },
+
+    react : {
+        o :  "⭕",
+        x :  "❌",
+        //:regional_indicator_a: 
+        alp : ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", "🇻", "🇼", "🇽", "🇾", "🇿"]
+    },
+
+
+    p0:{
+        cmd_start : ["募集開始"],
+        cmd_setroles    : "^setroles",
+
+        pong : "pong!!!",
+        make_room : "部屋を作ります",
+        //"rediscovered_room" : "部屋が再認識されました． `募集開始` でゲームを募集開始してください．ゲーム中であった場合はリセットされてしまいました．申し訳ありません．",
+        rediscovered_room : "部屋が再認識されました． `募集開始` でゲームを募集開始してください．",
+        start_recruiting : "メンバーの募集が開始されました．",
+
+        breakdown_changed : "役職の内訳設定が変更されました．"
+    }, 
+    p1 : {
+        cmd_join       : ["参加", "^join"],
+        cmd_join_force : ["強制参加", "^join_force", "^joinf"],
+        cmd_leave   : ["退出", "^leave"],
+        cmd_start   : ["開始", "^start"],
+        cmd_setroles    : ["^setroles"],
+
+        phase_name     : "参加者募集中",
+        start_p1          : "募集が開始されました．「{cmd}」と言うと参加できます",
+
+        already_in        : "{user} さんは既に参加登録されています．参加を取りやめるには「{leave}」と言ってください．",
+        no_join           : "{user} さんは参加登録されていません．参加者を確認するには「{member_list}」と言ってください．",
+        welcome           : "{user} さんの参加を受け付けました．",
+        see_you           : "{user} さんの参加を取り消しました．",
+        err_join_admin    : "{user_m} さんは Discord サーバーの 管理者権限を持っているので参加することが出来ません．どうしても参加したい場合は「{cmd}」と言ってください．",
+        warn_join_admin   : "{user_m} さんは Discord サーバーの 管理者権限を持っています．すべてのチャンネルを閲覧できてしまうので注意してください．",
+
+        current_count     : "現在 {num}/{all} 人です．",
+        member_full       : "メンバーが全員そろいました！　「{cmd}」でゲームを開始できます．",
+        member_not_enough : "メンバーが足りません．現在 {num} 人です．あと {rem} 人必要です．",
+        member_over       : "メンバーが定員オーバーです．現在 {num} 人です． {over} 人多いです．",
+    },
+    p2 : {
+        cmd_start_force   : ["強制開始", "^start_force", "^startf"],
+
+        phase_name        : "役職確認",
+        start_preparations : "ゲームを開始します．現在準備中です．しばらくお待ち下さい．",
+        announce_role      : "あなたは「{role}」（{team}）です",
+        announce_next      : "確認が完了したら :o: リアクションか，この個人チャットで返信をお願いします．",
+        done_preparations  : "部屋の準備と，役職の配布を完了しました．個人チャンネルで{sec}秒以内に確認操作をしてください．",
+
+        mate_names_title   : "仲間",
+
+        already_ac         : "あなたは既に確認済みです．しばらくお待ち下さい．",
+        new_accept         : "{user} さんの確認を受付ました．",
+        all_accept         : "全員の確認がとれました．ゲームを開始します．",
+
+        incomplete_ac      : "{users} さんの確認が取れませんでした．強制的にゲームを開始するには「{cmd}」と言ってください．",
+        cant_force_start   : "{sec}秒以内は強制開始コマンドは使用できません．",
+        force_start        : "強制的にゲームを開始します．",
+    },
+    p3 : {
+        phase_name           : "初夜",
+        no_fortune           : "初夜の占いはありません．",
+        random_fortune       : "占いの結果です．初夜の占いはランダムに決定します．人狼が出る可能性もあります．",
+        random_white_fortune : "占いの結果です．初夜の占いは人狼以外からランダムに決定します．",
+        length_of_the_first_night : "初夜の時間は {time} です"
+    },
+
+    p4 : {
+        phase_name        : "{n}日目 昼間",
+        no_killed_morning : "昨晩亡くなった方はいませんでした．",
+        killed_morning    : "{user} さんが無残な姿で発見されました．",
+
+        day_number        : "{n} 日目",
+        living_and_num    : "生存者({n}人)",
+        length_of_the_day : "昼の議論時間は {time} です",
+
+        coming_out_sel_title  : "役職のカミングアウト",
+        call_white_sel_title  : "白コールする相手を選択",
+        call_black_sel_title  : "黒コールする相手を選択",
+        role_list             : "役職一覧",
+        member_list           : "プレイヤー",
+        coming_out_open_title : "{name} さんが「{role}」だと正体を明かしました",
+        call_white_open_title : "{name} さんが {trgt} さんを「白」だとコールしました",
+        call_black_open_title : "{name} さんが {trgt} さんを「黒」だとコールしました",
+        call_time             : "昼が始まってから {sec} 秒",
+        publish_order         : "宣言順",
+    },
+    p5 : {
+        phase_name        : "{n}日目 投票",
+        end_daytime       : "本日の処刑者を決める投票の時間です．制限時間は {time} です",
+        start_vote        : "投票の時間です",
+        vote_title        : "{n}日目{time}の投票の時間です",
+        vote_desc         : "{user} 本日処刑したい人の番号の絵文字へリアクションしてください．",
+        vote_list         : "投票先",
+
+        vote_accept       : "{user} さんへ投票を行いました．",
+        vote_accept_1     : "{user} さんへ投票を行い，投票先を公開しました．投票の変更は出来ません．",
+        vote_change       : "{user} さんへ投票を変更しました．",
+        already_vote      : "{user} さんへの投票は既に行われています．投票を変えるには他の人を選択してください．",
+        no_revoting       : "{user} さんへの投票が既に行われています．投票の変更は出来ません．",
+
+        vote_format        : "投票 {from} → {to}",
+        vote_anonym_format : "投票 ？？？ → {to}",
+
+        revote_times       : "（{m}回目）",
+        executed           : "{n}日目{time}：投票の結果 {user} さんの処刑が決定しました",
+        after_open_title   : "{n}日目{time} 投票結果", //
+        revote             : "{n}日目{time}：票が割れたため，再投票を行います",
+        final_even         : "{n}日目{time}：投票の結果，本日の処刑は無しとなりました",
+        after_open_format  : "{from}  {n} 票  投票先　→　{to}",
+        after_open_format_n: "{from}  {n} 票  投票無し",
+        after_open_anonym  : "{n} 票 {from}",
+        after_no_open      : "投票情報は非公開です",
+        living_num         : "生存者：残り {n} 人",
+    },
+    
+    p6 : {
+        phase_name        : "{n}日目 夜",
+        start : "夜の時間が始まりました．時間は {time} です．"
+    },
+
+    p7 : {
+        phase_name     : "{team} の勝利",
+        cmd_continue    : ["次のゲーム", "新しいゲーム", "^continue", "^cont"],
+        cmd_breakup     : ["ゲーム終了", "^breakup", "^exit"],
+
+
+        title              : "Game Set!",
+        main               : "ゲームが終了しました．{team} の勝利です！",
+        win                : "勝利🏆",
+        lose               : "敗北😭",
+        result_format      : "{emo} {name} ： {role}({team}) ",
+        log                : "{emo}{role}ログ\n（{name}）",
+        continue           : "感想戦の最大時間は{time} です．この時間をすぎるか，「{brk}」と言うと，メンバー・ルール設定がリセットされます．\nゲームを続ける場合は「{cmd}」と言い，メンバーの確認を開始してください．",
+
+        breakup            : "部屋を解散しました．設定・ルールは初期化されます．",
+    },
+
+    fortune : {
+        no_wolf        : "{user} さんは人狼ではありませんでした {emo} ",
+        is_wolf        : "{user} さんは人狼です {emo} ",
+        no_result      : "今晩の占いは出来ませんでした．占える対象が居ない可能性があります．",
+
+        title          : "今晩，占う相手を選択してください",
+        list         : "候補",
+        result_title   : "占い結果  {user}",
+        same_team_role : "この結果が出る候補",
+        log            : "今までの占い結果",
+    },
+
+    priest : {
+        result_title : "霊媒結果  {user}",
+        no_result    : "昨晩は誰も処刑されませんでした",
+        no_wolf      : "{user} さんは人狼ではありませんでした {emo} ",
+        is_wolf      : "{user} さんは人狼です {emo} ",
+        
+        same_team_role : "この結果が出る候補",
+        log          : "今までの霊媒結果",
+        title        : "",
+        list         : "",
+    },
+
+    knight : {
+        title        : "今晩，守る人を選択してください",
+        list         : "候補",
+        already      : "{user} さんの選択は既に行われています．選択を変えるには他の人を選択してください．取り消しはできません．",
+        accept       : "{user} さんを守ります",
+        change       : "{user} さんへ護衛対象を変更しました",
+        no_select    : "護衛対象が選択されなかったため，誰も護衛しません",
+    },
+
+    werewolf : {
+        start_room_title : "{names}さんは人狼陣営です",
+        title            : "今晩，襲撃する相手を選択してください",
+        list             : "候補",
+        already          : "{user} さんへの襲撃は既に設定されています．対象を変えるには他の人を選択してください．取り消しはできません．",
+        accept           : "{user} さんを襲撃します",
+        change           : "{user} さんへ襲撃対象を変更しました",
+        no_select        : "襲撃対象が選択されなかったため，ランダムの結果 {user} さんを襲撃します",
+    }
+}

@@ -1,0 +1,229 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Client</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="state" id="state">Connecting...</div>
+<div class="timer" id="time"></div>
+<div class="members" id="members_base">
+  <div class="member speak">
+    <div class="avatar">
+      <img src="https://cdn.discordapp.com/embed/avatars/0.png">
+      <svg class="dead_overlay" width=128 height=128>
+        <rect x=0 y=30 width=128 height=20 fill="black" />
+        <rect x=54 y=0 width=20 height=128 fill="black" />
+      </svg>
+      <svg class="kill_overlay" width=128 height=128>
+        <polygon points="40,0   0,40   0,60 60,0" />
+        <polygon points="88,0 128,40 128,60 68,0" />
+      </svg>
+    </div>
+    <img class="co"   src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <img class="role" src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <div class="aname"> A </div>
+  </div>
+
+  <div class="member nospeak">
+    <div class="avatar">
+      <img src="https://cdn.discordapp.com/embed/avatars/1.png">
+      <svg class="dead_overlay" width=128 height=128>
+        <rect x=0 y=30 width=128 height=20 fill="black" />
+        <rect x=54 y=0 width=20 height=128 fill="black" />
+      </svg>
+      <svg class="kill_overlay" width=128 height=128>
+        <polygon points="40,0   0,40   0,60 60,0" />
+        <polygon points="88,0 128,40 128,60 68,0" />
+      </svg>
+    </div>
+    <img class="co"   src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <img class="role" src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <div class="aname"> BB </div>
+  </div>
+
+  <div class="member">
+    <div class="avatar">
+      <img src="https://cdn.discordapp.com/embed/avatars/2.png">
+      <svg class="dead_overlay" width=128 height=128>
+        <rect x=0 y=30 width=128 height=20 fill="black" />
+        <rect x=54 y=0 width=20 height=128 fill="black" />
+      </svg>
+      <svg class="kill_overlay" width=128 height=128>
+        <polygon points="40,0   0,40   0,60 60,0" />
+        <polygon points="88,0 128,40 128,60 68,0" />
+      </svg>
+    </div>
+    <img class="co"   src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <img class="role" src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <div class="aname"> CCC </div>
+  </div>
+
+  <div class="member kill speak">
+    <div class="avatar">
+      <img src="https://cdn.discordapp.com/embed/avatars/3.png">
+      <svg class="dead_overlay" width=128 height=128>
+        <rect x=0 y=30 width=128 height=20 fill="black" />
+        <rect x=54 y=0 width=20 height=128 fill="black" />
+      </svg>
+      <svg class="kill_overlay" width=128 height=128>
+        <polygon points="40,0   0,40   0,60 60,0" />
+        <polygon points="88,0 128,40 128,60 68,0" />
+      </svg>
+    </div>
+    <img class="co"   src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <img class="role" src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <div class="aname"> DDDD </div>
+  </div>
+
+  <div class="member dead nospeak">
+    <div class="avatar">
+      <img src="https://cdn.discordapp.com/embed/avatars/4.png">
+      <svg class="dead_overlay" width=128 height=128>
+        <rect x=0 y=30 width=128 height=20 fill="black" />
+        <rect x=54 y=0 width=20 height=128 fill="black" />
+      </svg>
+      <svg class="kill_overlay" width=128 height=128>
+        <polygon points="40,0   0,40   0,60 60,0" />
+        <polygon points="88,0 128,40 128,60 68,0" />
+      </svg>
+    </div>
+    <img class="co"   src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <img class="role" src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
+    <div class="aname"> EEEEE </div>
+  </div>
+
+</div>
+
+
+<script>
+function b64DecodeUnicode(str) {
+  // Going backwards: from bytestream, to percent-encoding, to original string.
+  return decodeURIComponent(atob(str).split('').map(function (c) {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+}
+function getStateIDs(dat) {
+  let sta = "";
+  if(dat.isSpeaking == "s") sta += " speak"
+  if(dat.isSpeaking == "n") sta += " nospeak"
+  if(dat.isLiving == "d")   sta += " dead"
+  if(dat.isLiving == "k")   sta += " kill"
+  return sta;
+}
+
+
+let gameData = new Object;
+window.onload = function () {
+  let arg = new Object;
+  let pair = location.search.substring(1).split('&');
+  for (let i = 0; pair[i]; i++) {
+    let kv = pair[i].split('=');
+    arg[kv[0]] = kv[1];
+  }
+  if (arg.room == undefined) {
+    document.getElementById('state').innerHTML = 'Room Parameter not found...';
+    return;
+  }
+
+  const WS_URL = location.origin.replace(/^http/, 'ws') + '/' + arg.room;
+  console.log(WS_URL);
+  const ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    console.log(`Connected to ${WS_URL}`);
+    document.getElementById('state').innerHTML = 'Connected!';
+  }
+  ws.onclose = () => {
+    document.getElementById('state').innerHTML = 'Connection Closed...';
+  }
+  ws.onmessage = message => {
+    console.log(message.data);
+    if (message.data.startsWith('{')) {
+      const json = JSON.parse(message.data);
+      gameData = json;
+      let m = "";
+      for(const bid in json.members) {
+        const dat = json.members[bid];
+
+        m += `<div id="mem_${bid}" class="member${getStateIDs(dat)}">\n`
+        m += `  <div class="avatar">\n`
+        m += `    <img src="${dat.avatar}">\n`
+        m += `    <svg class="dead_overlay" width=128 height=128>\n`
+        m += `      <rect x=0 y=30 width=128 height=20 fill="black" />\n`
+        m += `      <rect x=54 y=0 width=20 height=128 fill="black" />\n`
+        m += `    </svg>\n`
+        m += `    <svg class="kill_overlay" width=128 height=128>\n`
+        m += `      <polygon points="40,0   0,40   0,60 60,0" />\n`
+        m += `      <polygon points="88,0 128,40 128,60 68,0" />\n`
+        m += `    </svg>\n`
+        m += `  </div>\n`
+        if(dat.co){
+          m += `  <img class="co"   src="${dat.co}">\n`
+        }
+        if(dat.role){
+          m += `  <img class="role" src="${dat.role}">\n`
+        }
+        m += `  <div class="aname">${b64DecodeUnicode(dat.nameb)}</div>\n`
+        m += `</div>\n`
+      }
+      var p = document.getElementById('members_base');
+      if(gameData.isGameEnd){
+        p.className = "members fin";
+      } else {
+        p.className = "members";
+      }
+      p.innerHTML = m;
+      var p = document.getElementById('state');
+      p.innerHTML = gameData.phase;
+      return;
+    }
+    if (message.data.startsWith('s')) {
+      const bid = message.data.substring(1);
+      gameData.members[bid].isSpeaking = "s";
+      let p = document.getElementById('mem_' + bid);
+      p.className = "member" + getStateIDs(gameData.members[bid]);
+      return;
+    }
+    if (message.data.startsWith('n')) {
+      const bid = message.data.substring(1);
+      gameData.members[bid].isSpeaking = "n";
+      let p = document.getElementById('mem_' + bid);
+      p.className = "member" + getStateIDs(gameData.members[bid]);
+      return;
+    }
+    if (message.data.startsWith('d')) {
+      const bid = message.data.substring(1);
+      gameData.members[bid].isLiving = "d";
+      let p = document.getElementById('mem_' + bid);
+      p.className = "member" + getStateIDs(gameData.members[bid]);
+      return;
+    }
+    if (message.data.startsWith('k')) {
+      const bid = message.data.substring(1);
+      gameData.members[bid].isLiving = "k";
+      let p = document.getElementById('mem_' + bid);
+      p.className = "member" + getStateIDs(gameData.members[bid]);
+      return;
+    }
+    if (message.data.startsWith('t')) {
+      let p = document.getElementById('time');
+      p.innerHTML = message.data.substring(1);
+      return;
+    }
+    if (message.data.startsWith('p')) {
+      let p = document.getElementById('state');
+      gameData.phase = message.data.substring(1);
+      p.innerHTML = gameData.phase;
+      return;
+    }
+    if (message.data.startsWith('x')) {
+      ws.onclose = () => { };
+      document.getElementById('state').innerHTML = 'Invalid Room ID...';
+      return;
+    }
+  }
+}
+</script>
+</body>
+
+</html>

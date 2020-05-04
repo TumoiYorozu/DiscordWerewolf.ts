@@ -1,0 +1,45 @@
+{
+    role_nums : {
+        Villager  : 0,
+        Seer      : 1,
+        Priest    : 0,
+        Knight    : 1,
+        Werewolf  : 1,
+        Traitor   : 1,
+    },
+    first_nights_fortune : "random_white",
+    continuous_guard  : false,
+    confirmation_sec  : 30,
+
+    first_night : {
+        first_night_time : 180,
+        alert_times : [5, 20],
+    },
+
+    day : {
+        day_time       : 600,
+        reduction_time :  60,
+        alert_times : [10, 30, 120],
+    },
+
+    night : {
+        length      : 180,
+        alert_times : [5, 15, 30, 45],
+    },
+
+    after_game : {
+        length      : 3000,
+        alert_times : [10, 30],
+    },
+
+    vote : {
+        length      : 60,
+        alert_times : [5, 15, 40],
+        talk        : false,
+        place       : "after_open",
+
+        revote_num  : 2,
+        runoff_num  : 1,
+        when_even   : "random",
+    },
+}
