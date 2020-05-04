@@ -2,6 +2,7 @@
 
 # run  "sh set_dova_syndrome_BGMs.sh"
 
+cd `dirname $0`
 BGM_PATH=../../media/dova_syndrome_BGMs
 
 rm *.mp3*
