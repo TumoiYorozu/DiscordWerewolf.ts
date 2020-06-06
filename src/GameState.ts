@@ -2178,15 +2178,6 @@ export default class GameState {
             }
             return;
         }
-        let idx = isThisCommand(message.content, this.langTxt.sys.cmd_change_rule);
-        if(idx >= 0){
-            if(isGM){ 
-                this.changeRule(message.content.substring(this.langTxt.sys.cmd_change_rule[idx].length));
-            } else if(message.channel.type == 'text') {
-                this.needGmPerm(message.channel);
-            }
-            return;
-        }
         if(isThisCommand(message.content, this.langTxt.sys.cmd_update_perm) >= 0){
             this.updateRoomsRW()
             return;
@@ -2205,6 +2196,16 @@ export default class GameState {
         }
         ///////////////////////////////////////////////////////////////////
         if(this.phase == Phase.p1_Wanted){
+            let idx = 0;
+            idx = isThisCommand(message.content, this.langTxt.sys.cmd_change_rule);
+            if(idx >= 0){
+                if(isGM){ 
+                    this.changeRule(message.content.substring(this.langTxt.sys.cmd_change_rule[idx].length));
+                } else if(message.channel.type == 'text') {
+                    this.needGmPerm(message.channel);
+                }
+                return;
+            }
             if(isThisCommand(message.content, this.langTxt.p1.cmd_join_force) >= 0){
                 this.joinMember(message, true);
                 return;
@@ -2221,7 +2222,7 @@ export default class GameState {
                 await this.checkStartGame(message);
                 return;
             }
-            const idx = isThisCommand(message.content, this.langTxt.p1.cmd_setroles);
+            idx = isThisCommand(message.content, this.langTxt.p1.cmd_setroles);
             if(idx >= 0){
                 if(isGM){ this.setRolesStr(message.content.substring(this.langTxt.p1.cmd_setroles[idx].length));
                 } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
