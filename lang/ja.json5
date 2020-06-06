@@ -21,6 +21,7 @@
         cmd_role_num      : ["^RoleNum"],
         cmd_reload_rule   : ["^reload_rule"],
         cmd_member_list   : ["参加者", "^list"],
+        cmd_change_rule   : ["^ch_rule", "^chRule", "^chrule"],
 
 
         cmd_update_perm  : ["^update_perm"],
