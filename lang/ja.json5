@@ -79,6 +79,31 @@
         welcome_dead   : "{user} さんは死亡し，霊界へやってきました．",
         no_result      : "（結果なし）",
     },
+
+    rule : {
+        title : "ルール設定",
+        first_nights_fortune : {
+            txt          : "初夜の占い先　　",
+            no_fortune   : "占い無し",
+            random       : "完全ランダム",
+            random_white : "ランダム白",
+        },
+        continuous_guard : {
+            txt : "騎士の連続ガード",
+            no  : "不可",
+            yes : "できる",
+        },
+        vote_place : {
+            txt                  : "投票先　　　　　",
+            realtime_open        : "リアルタイム開示",
+            realtime_anonym      : "リアルタイムに匿名で投票先開示",
+            realtime_anonym_open : "リアルタイムに匿名で投票先開示後，投票元公開",
+            after_open           : "〆切後に全開示",
+            after_anonym         : "〆切後に匿名で開示",
+            no_open              : "投票先の統計は開示されない",
+        }
+    },
+
     role : {
         Villager  : "村人",
         Seer      : "占い師",
