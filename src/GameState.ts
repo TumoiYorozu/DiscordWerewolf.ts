@@ -1,7 +1,7 @@
 import * as Discord from "discord.js";
 import LiveStream     from "./LiveStream"
-import {GameChannels, format, isThisCommand, assertUnreachable, shuffle, loadAndSetSysRuleSet} from "./GameUtils"
-import {LangType, RuleType, RolesStr, FortunePriestType, ServerSettingsType} from "./JsonType";
+import {GameChannels, format, isThisCommand, assertUnreachable, shuffle, loadAndSetSysRuleSet, updateHashValueWithFormat} from "./GameUtils"
+import {LangType, RuleType, RolesStr, FortunePriestType, ServerSettingsType, RuleTypeFormat} from "./JsonType";
 import {HttpServer, HttpGameState} from "./HttpServer"
 
 export const Phase = {
@@ -464,6 +464,39 @@ export default class GameState {
             color: this.langTxt.sys.system_color,
             fields : fields,
         }});
+    }
+    changeRule(rulesStr : string) {
+        const delimiters = [':', '='];
+        let res = "";
+        let changed = false;
+        for(let rule of rulesStr.split('\n')){
+            rule = rule.trim();
+            let dpos = rule.length;
+            for(const d of delimiters) {
+                const v = rule.indexOf(d);
+                if(v >= 1) dpos = Math.min(dpos, v);
+            }
+            if(dpos >= rule.length) {const v = rule.indexOf(' ');   if(v >= 1) dpos = v;}
+            if(dpos >= rule.length) {const v = rule.indexOf(' \t'); if(v >= 1) dpos = v;}
+            if(dpos >= rule.length) continue;
+            const attribute = rule.substring(0, dpos).trim();
+            const value     = rule.substring(dpos+1, rule.length).trim();
+            if(attribute.length == 0 || value.length == 0) continue;
+            console.log("attribute : ", attribute);
+            console.log("value     : ", value);
+            const r = updateHashValueWithFormat(attribute, value, RuleTypeFormat.runtimeType, this.ruleSetting);
+            changed = changed || r;
+            if(!r) {
+                res += "Failed to set the value. attribute : " + attribute + " value : " + value + "\n";
+            }
+        }
+        if(res != ""){
+            this.channels.Living.send(res);
+        }
+        if(changed) {
+            this.sendWantNums(this.channels.Living);
+        }
+        console.log(this.ruleSetting);
     }
 
     start_1Wanted(){
@@ -2142,6 +2175,15 @@ export default class GameState {
             const ch = message.channel;
             if(ch.type == 'text') {
                 this.sendMemberList(ch);
+            }
+            return;
+        }
+        let idx = isThisCommand(message.content, this.langTxt.sys.cmd_change_rule);
+        if(idx >= 0){
+            if(isGM){ 
+                this.changeRule(message.content.substring(this.langTxt.sys.cmd_change_rule[idx].length));
+            } else if(message.channel.type == 'text') {
+                this.needGmPerm(message.channel);
             }
             return;
         }

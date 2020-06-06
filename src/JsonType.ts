@@ -96,6 +96,7 @@ export const LangTypeFormat = obj({
         cmd_role_num     : arr(str),
         cmd_reload_rule  : arr(str),
         cmd_member_list  : arr(str),
+        cmd_change_rule  : arr(str),
 
         cmd_update_perm  : arr(str),
         cmd_stop_timer   : arr(str),
