@@ -425,6 +425,18 @@ export default class GameState {
             team_cnt[t] += this.defaultRoles[r];
             all_cnt += this.defaultRoles[r];
         }
+        let rules_txt = "";
+        if(this.defaultRoles[Role.Seer]) {
+            rules_txt += this.langTxt.rule.first_nights_fortune.txt + ":" + this.langTxt.rule.first_nights_fortune[this.ruleSetting.first_nights_fortune] + "\n";
+        }
+        if(this.defaultRoles[Role.Knight]) {
+            rules_txt += this.langTxt.rule.continuous_guard.txt + ":" + this.langTxt.rule.continuous_guard[this.ruleSetting.continuous_guard ? "yes" : "no"] + "\n";
+        }
+        {
+            rules_txt += this.langTxt.rule.vote_place.txt + ":" + this.langTxt.rule.vote_place[this.ruleSetting.vote.place] + "\n";
+        }
+
+
         let fields : {[key: string]:  any}[] = [];
 
         if(team[TeamNames.Good] != "") { fields.push({
@@ -442,6 +454,10 @@ export default class GameState {
             format(this.langTxt.sys.Current_role_breakdown_sum, {num : team_cnt[TeamNames.Other]}),
             value: team[TeamNames.Other], inline : true});
         }
+        fields.push({
+            name : this.langTxt.rule.title,
+            value: rules_txt, inline : false});
+
         tch.send({embed: {
             title: this.langTxt.sys.Current_role_breakdown,
             description : format(this.langTxt.sys.Current_role_breakdown_sum, {num : all_cnt}),

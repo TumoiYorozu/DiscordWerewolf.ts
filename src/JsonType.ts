@@ -154,6 +154,29 @@ export const LangTypeFormat = obj({
         welcome_dead : str,
         no_result    : str,
     }),
+    rule : obj({
+        title : str,
+        first_nights_fortune : obj({
+            txt           : str,
+            no_fortune    : str,
+            random        : str,
+            random_white  : str,
+        }),
+        continuous_guard : obj({
+            txt : str,
+            no  : str,
+            yes : str,
+        }),
+        vote_place : obj({
+            txt                  : str,
+            realtime_open        : str,
+            realtime_anonym      : str,
+            realtime_anonym_open : str,
+            after_open           : str,
+            after_anonym         : str,
+            no_open              : str,
+        }),
+    }),
 
     role     : RolesStr,
     emo      : RolesStr,
