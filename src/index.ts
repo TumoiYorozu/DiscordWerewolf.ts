@@ -298,7 +298,7 @@ async function on_message(bid : number, message : Discord.Message){
                     if(guild2 != null){
                         const ch2 = getGameChannels2(ch, guild2.channels);
                         if(ch2 != null){
-                            Games[paID] = new GameState(clients, Games, message.guild, ch, ch2, paID, httpServer, SrvLangTxt, SrvRuleSet, ServerSetting);
+                            Games[paID] = new GameState(clients, Games, message.guild, guild2, ch, ch2, paID, httpServer, SrvLangTxt, SrvRuleSet, ServerSetting);
                             ch.Living.send(SrvLangTxt.p0.rediscovered_room)
                             Games[paID].start_1Wanted();
                             await Games[paID].command(message);
@@ -326,7 +326,7 @@ async function on_message(bid : number, message : Discord.Message){
             const pa = ch.Living.parentID;
             const ch2 = getGameChannels2(ch, guild2.channels);
             if(pa == null || ch2 == null) return;
-            Games[pa] = new GameState(clients, Games, guild1, ch, ch2, pa, httpServer, SrvLangTxt, SrvRuleSet, ServerSetting);
+            Games[pa] = new GameState(clients, Games, guild1, guild2, ch, ch2, pa, httpServer, SrvLangTxt, SrvRuleSet, ServerSetting);
             Games[pa].updateRoomsRW();
             ch.Living.send("<@!" + message.author.id + "> done!");
             Games[pa].start_1Wanted();
