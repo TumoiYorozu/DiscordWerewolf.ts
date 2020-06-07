@@ -124,6 +124,17 @@ export function updateHashValueWithFormat(attribute : string, value : any, runti
                             }
                         }
                     }
+                } else if(chT.base == 'optional') {
+                    if(chT.element == 'string'){
+                        hash[attr] = value;
+                        return true;
+                    } else if(chT.element == 'number'){
+                        const v = parseInt(value);
+                        if(v.toString() == value){
+                            hash[attr] = v;
+                            return true;
+                        }
+                    }
                 } else if(chT.base == 'object') {
                     if(dpos != attribute.length){
                         return updateHashValueWithFormat(attribute.substring(dpos+1, attribute.length), value, chT, hash[attr]);
