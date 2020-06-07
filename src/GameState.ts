@@ -122,6 +122,7 @@ class GameMember {
     user            : Discord.User;
     member          : Discord.GuildMember | null;
     uchannel        : Discord.TextChannel | null = null;
+    uchannel2       : Discord.TextChannel | null = null;
     role            : Role | null = null;
     allowWolfRoom   : boolean     = false;
     actionLog       : [string, TeamNames][] = [];
@@ -218,6 +219,7 @@ export enum KickReason {
 export default class GameState {
     clients      : Discord.Client[];
     guild        : Discord.Guild;
+    guild2       : Discord.Guild;
     srvSetting   : ServerSettingsType;
     langTxt      : LangType;
     ruleSetting  : RuleType;
@@ -258,10 +260,11 @@ export default class GameState {
     wolfLog         : string[];
     httpGameState   : HttpGameState;
 
-    constructor(clients : Discord.Client[], upperGames : {[key: string]: GameState}, guild : Discord.Guild, ch : GameChannels, ch2 : GameChannels, parentID : string, httpServer : HttpServer, srvLangTxt : LangType, srvRuleSetting : RuleType, srvSetting : ServerSettingsType) {
+    constructor(clients : Discord.Client[], upperGames : {[key: string]: GameState}, guild : Discord.Guild, guild2 : Discord.Guild, ch : GameChannels, ch2 : GameChannels, parentID : string, httpServer : HttpServer, srvLangTxt : LangType, srvRuleSetting : RuleType, srvSetting : ServerSettingsType) {
         this.clients     = clients;
         this.upperGames  = upperGames;
         this.guild       = guild;
+        this.guild2      = guild2;
         this.loadLang(srvLangTxt);
         this.langTxt     = srvLangTxt;
         this.ruleSetting = srvRuleSetting;
@@ -1123,15 +1126,26 @@ export default class GameState {
                 return c.name == ch_name && c.type === 'text' && c.parentID == this.parentID;
             }) as Discord.TextChannel | null;
 
+            let g2 : Discord.Guild | null = null;
             if(user_ch != null){
                 console.log("Found ", user.username, " channnel", user_ch.id);
                 user_ch.overwritePermissions(perm);
+                g2 = this.guild2;
             } else {
                 user_ch = await message.guild.channels.create(ch_name, {parent : this.parentID, type : 'text', position : 1, permissionOverwrites:perm});
                 console.log("New ", user.username, " channnel", user_ch.id);
+                g2 = await this.guild2.fetch();
             }
             if(user_ch == null) return this.err();
-            this.members[uid].uchannel = user_ch;
+            if(g2 == null) return this.err();
+
+            let user_ch2 = g2.channels.cache.find(c => {
+                return c.name == ch_name && c.type === 'text' && c.parentID == this.parentID;
+            }) as Discord.TextChannel | null;
+            if(user_ch2 == null) return this.err();
+
+            this.members[uid].uchannel  = user_ch;
+            this.members[uid].uchannel2 = user_ch2;
         }));
         return true;
     }
@@ -1318,12 +1332,14 @@ export default class GameState {
 
         for(const uid in this.members){
             if(!this.members[uid].isLiving) continue;
-            const uch = this.members[uid].uchannel;
-            if(uch == null) continue;
+            const uch  = this.members[uid].uchannel;
+            const uch2 = this.members[uid].uchannel2;
+            if(uch  == null || uch2 == null) continue;
             uch.send(coEmbed).then(message => {
                 this.reactControllers[ReactType.CO][message.id] = message;
+                const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
                 for(const r in this.defaultRoles){
-                    message.react(this.langTxt.role_uni[r as Role]);
+                    m.react(this.langTxt.role_uni[r as Role]);
                 }
             })
             uch.send(whiteEmbed).then(message => {
@@ -1333,9 +1349,10 @@ export default class GameState {
                 }
             })
             uch.send(blackEmbed).then(message => {
+                const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
                 this.reactControllers[ReactType.CallBlack][message.id] = message;
                 for(const uid in this.members){
-                    message.react(this.members[uid].alpStr)
+                    m.react(this.members[uid].alpStr)
                 }
             })
         }
