@@ -177,6 +177,16 @@ export const LangTypeFormat = obj({
             after_anonym         : str,
             no_open              : str,
         }),
+
+        vote_num : obj({
+            txt                  : str,
+        }),
+
+        vote_even : obj({
+            txt                  : str,
+            random               : str,
+            no_exec              : str,
+        }),
     }),
 
     role     : RolesStr,
@@ -438,7 +448,6 @@ export const RuleTypeFormat = obj({
             literal('no_open' as const),
         ),
         revote_num : num,
-        runoff_num : num,
         when_even: union(
             literal('random' as const),
             literal('no_exec' as const),
