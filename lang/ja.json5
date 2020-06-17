@@ -102,7 +102,15 @@
             after_open           : "〆切後に全開示",
             after_anonym         : "〆切後に匿名で開示",
             no_open              : "投票先の統計は開示されない",
-        }
+        },
+        vote_num : {
+            txt                  : "投票の最大回数　",
+        },
+        vote_even : {
+            txt                  : "投票引き分け時　",
+            random               : "最大票からランダム処刑",
+            no_exec              : "処刑無し",
+        }, 
     },
 
     role : {

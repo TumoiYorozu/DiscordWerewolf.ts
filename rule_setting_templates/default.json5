@@ -39,7 +39,6 @@
         place       : "after_open",
 
         revote_num  : 2,
-        runoff_num  : 1,
         when_even   : "random",
     },
 }

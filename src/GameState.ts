@@ -437,6 +437,8 @@ export default class GameState {
         }
         {
             rules_txt += this.langTxt.rule.vote_place.txt + ":" + this.langTxt.rule.vote_place[this.ruleSetting.vote.place] + "\n";
+            rules_txt += this.langTxt.rule.vote_num.txt   + ": " + String(this.ruleSetting.vote.revote_num + 1) + "\n";
+            rules_txt += this.langTxt.rule.vote_even.txt  + ":" + this.langTxt.rule.vote_even[this.ruleSetting.vote.when_even] + "\n";
         }
 
 
