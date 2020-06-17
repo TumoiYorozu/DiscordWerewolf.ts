@@ -316,6 +316,11 @@ export const LangTypeFormat = obj({
         call_black_open_title : str,
         call_time             : str,
         publish_order         : str,
+
+        cut_time_title        : str,
+        cut_time_accept       : str,
+        cut_time_cancel       : str,
+        cut_time_approved     : str,
     }),
 
     p5
@@ -420,6 +425,11 @@ export const RuleTypeFormat = obj({
         day_time       : num,
         reduction_time : num,
         alert_times      : arr(num),
+
+        cut_time: union(
+            literal('all' as const),
+            literal('majority' as const),
+        ),
     }),
     
     night

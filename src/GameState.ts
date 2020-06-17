@@ -207,6 +207,7 @@ enum ReactType {
     CO,
     CallWhite,
     CallBlack,
+    CutTime,
 }
 
 export enum KickReason {
@@ -244,6 +245,7 @@ export default class GameState {
     
     reactControllers : { [key: string]: Discord.Message; }[] = [];
     reactedMember : { [key: string]: number; }  = Object.create(null);
+    cutTimeMember : { [key: string]: number; }  = Object.create(null);
     p2CanForceStartGame : boolean;
     remTime         : number;
     daytimeStartTime: number = 0;
@@ -1291,6 +1293,7 @@ export default class GameState {
         }});
         this.daytimeStartTime = Date.now();
         this.makeCoCallController();
+        this.makeCutTimeController();
         this.voteNum     = 0;
         this.runoffNum   = 0;
         this.stopTimerRequest = false;
@@ -1356,6 +1359,26 @@ export default class GameState {
                 for(const uid in this.members){
                     m.react(this.members[uid].alpStr)
                 }
+            })
+        }
+    }
+    makeCutTimeController(){
+        this.reactControllers[ReactType.CutTime] = Object.create(null);
+        this.cutTimeMember = Object.create(null);
+
+        const liveNum =  Object.keys(this.members).reduce((acc, value) => { return acc + (this.members[value].isLiving?1:0);}, 0);
+        const req = (this.ruleSetting.day.cut_time == "all" ?      liveNum
+                    :this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
+                    :assertUnreachable(this.ruleSetting.day.cut_time));
+
+        const txt = format(this.langTxt.p4.cut_time_title, {req : req});
+        for(const uid in this.members){
+            if(!this.members[uid].isLiving) continue;
+            const uch  = this.members[uid].uchannel;
+            if(uch == null) continue;
+            uch.send(txt).then(message => {
+                this.reactControllers[ReactType.CutTime][message.id] = message;
+                message.react(this.langTxt.react.o);
             })
         }
     }
@@ -1449,6 +1472,34 @@ export default class GameState {
         this.channels.GameLog.send(embed);
         this.httpGameState.updateMembers();
     }
+    cutTimeCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean){
+        if(this.phase != Phase.p4_Daytime) return;
+        if(reaction.emoji.toString() != this.langTxt.react.o) return;
+
+        const liveNum =  Object.keys(this.members).reduce((acc, value) => { return acc + (this.members[value].isLiving?1:0);}, 0);
+        const req = (this.ruleSetting.day.cut_time == "all" ?      liveNum
+                    :this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
+                    :assertUnreachable(this.ruleSetting.day.cut_time));
+        if(!isAdd){
+            delete this.cutTimeMember[user.id];
+            const now = Object.keys(this.cutTimeMember).length;
+            const uch = this.members[user.id].uchannel;
+            const txt = format(this.langTxt.p4.cut_time_cancel, {now : now, req : req});
+            if(uch != null) uch.send(txt);
+            this.channels.Living.send(txt);
+        } else {
+            this.cutTimeMember[user.id] = 1;
+            const now = Object.keys(this.cutTimeMember).length;
+            const uch = this.members[user.id].uchannel;
+            const txt = format(this.langTxt.p4.cut_time_accept, {now : now, req : req});
+            if(uch != null) uch.send(txt);
+            this.channels.Living.send(txt);
+            if(now >= req) {
+                this.channels.Living.send(this.langTxt.p4.cut_time_approved);
+                this.remTime = Math.min(5, this.remTime);
+            }
+        }
+    }
 
     ////////////////////////////////////////////
     // Phase.p5_Vote
@@ -1464,6 +1515,9 @@ export default class GameState {
         this.reactControllers[ReactType.CO]        = Object.create(null);
         this.reactControllers[ReactType.CallWhite] = Object.create(null);
         this.reactControllers[ReactType.CallBlack] = Object.create(null);
+        this.reactControllers[ReactType.CutTime]   = Object.create(null);
+        this.cutTimeMember = Object.create(null);
+
         if(this.phase != Phase.p5_Vote){
             this.streams.setBGM(this.srvSetting.music.vote);
         }
@@ -2092,6 +2146,22 @@ export default class GameState {
         }
     }
 
+    reactCommandRemove(reaction : Discord.MessageReaction, user : Discord.User){
+        const uid = Object.keys(this.members).find(k => k == user.id);
+        if(uid == null) return;
+        if(!this.members[uid].isLiving) return;
+        const uch = this.members[uid].uchannel;
+        if(uch == null) return;
+
+        for(let i = 0; i < this.reactControllers.length; i++) {
+            if(i == ReactType.CutTime){
+                if(this.phase == Phase.p4_Daytime) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.cutTimeCheck(reaction, user, false);
+                }
+            }
+        }
+    }
     reactCommand(reaction : Discord.MessageReaction, user : Discord.User){
         const uid = Object.keys(this.members).find(k => k == user.id);
         if(uid == null) return;
@@ -2142,6 +2212,12 @@ export default class GameState {
                 if(this.phase == Phase.p4_Daytime) {
                     if(reaction.message.channel.id != uch.id) return;
                     this.coCallCheck(reaction, user, i);
+                }
+            }
+            if(i == ReactType.CutTime){
+                if(this.phase == Phase.p4_Daytime) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.cutTimeCheck(reaction, user, true);
                 }
             }
         }

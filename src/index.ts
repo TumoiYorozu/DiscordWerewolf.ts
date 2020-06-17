@@ -354,7 +354,18 @@ clients[0].on('messageReactionAdd', (reaction, user) => {
         }
     }
 });
-
+clients[0].on('messageReactionRemove', (reaction, user) => {
+    if (clients[0].user == null || user.id == clients[0].user.id) return;
+    if (clients[1].user == null || user.id == clients[1].user.id) return;
+    if(reaction.message.channel.type === 'text'){
+        if(reaction.message.channel.parentID != null){
+            const pid = reaction.message.channel.parentID;
+            if(Object.keys(Games).find((v : string ) => v == pid) != null){
+                Games[pid].reactCommandRemove(reaction, user as Discord.User);
+            }
+        }
+    }
+});
 
 
 const token1 = ServerSetting.token1;

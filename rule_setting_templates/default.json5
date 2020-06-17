@@ -20,6 +20,7 @@
         day_time       : 600,
         reduction_time :  60,
         alert_times : [10, 30, 120],
+        cut_time    : "majority",
     },
 
     night : {
