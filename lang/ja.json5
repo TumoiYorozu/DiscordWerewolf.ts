@@ -287,6 +287,11 @@
         call_black_open_title : "{name} さんが {trgt} さんを「黒」だとコールしました",
         call_time             : "昼が始まってから {sec} 秒",
         publish_order         : "宣言順",
+
+        cut_time_title        : "時間短縮の希望を行うには :o: リアクションをしてください．成立必要人数 : {req}人",
+        cut_time_accept       : "時間短縮の希望を行いました．{now}/{req}人",
+        cut_time_cancel       : "時間短縮の希望をキャンセルしました．{now}/{req}人",
+        cut_time_approved     : "時間短縮が成立しました",
     },
     p5 : {
         phase_name        : "{n}日目 投票",
