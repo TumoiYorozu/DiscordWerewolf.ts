@@ -286,6 +286,14 @@ export const LangTypeFormat = obj({
         incomplete_ac      : str,
         cant_force_start   : str,
         force_start        : str,
+
+        wish_role_preparations : str,
+        wish_role_desc1        : str,
+        wish_role_desc2        : str,
+        wish_role_desc3        : str,
+        wish_role_desc_wish    : str,
+        wish_role_desc_nowish  : str,
+        wish_role_req          : str,
     }),
     
     p3
@@ -413,6 +421,9 @@ export const RuleTypeFormat = obj({
     ),
     continuous_guard : bool,
     confirmation_sec : num,
+
+    wish_role_rand_weight : num,
+    wish_role_time        : num,
 
     first_night
     :obj({

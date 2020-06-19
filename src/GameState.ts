@@ -124,6 +124,8 @@ class GameMember {
     uchannel        : Discord.TextChannel | null = null;
     uchannel2       : Discord.TextChannel | null = null;
     role            : Role | null = null;
+    wishRole        : { [key: string]: number; }  = Object.create(null);
+    nonWishRole     : { [key: string]: number; }  = Object.create(null);
     allowWolfRoom   : boolean     = false;
     actionLog       : [string, TeamNames][] = [];
     isLiving        : boolean  = true;
@@ -147,6 +149,8 @@ class GameMember {
     }
     reset() {
         this.role = null;
+        this.wishRole    = Object.create(null);
+        this.nonWishRole = Object.create(null);
         this.allowWolfRoom = false;
         this.actionLog = [];
         this.isLiving = true;
@@ -200,6 +204,8 @@ function addPerm(id : string, p : Perm, perms : Discord.OverwriteResolvable[]){
 
 enum ReactType {
     Accept,
+    WishRole,
+    NonWishRole,
     Vote,
     Knight,
     Seer,
@@ -1029,14 +1035,159 @@ export default class GameState {
         this.streams.setBGM(this.srvSetting.music.first_night);
         this.httpGameState.updatePhase(this.langTxt.p2.phase_name);
 
-        let role_arr : Role[] = [];
-        for(const r in this.defaultRoles){
-            for(let i = 0; i < this.defaultRoles[r]; ++i){
-                role_arr.push(r as Role);
+        if(this.ruleSetting.wish_role_time <= 0){
+            this.gamePreparation2();
+        } else {
+            this.reactControllers[ReactType.WishRole] = Object.create(null);
+            this.reactControllers[ReactType.NonWishRole] = Object.create(null);
+
+            this.channels.Living.send({embed: {
+                title       : format(this.langTxt.p2.wish_role_preparations, {sec : this.ruleSetting.wish_role_time}),
+                description : this.langTxt.p2.wish_role_desc2 + "\n" + format(this.langTxt.p2.wish_role_desc3, {n : this.ruleSetting.wish_role_rand_weight}),
+                color       : this.langTxt.sys.system_color,
+            }});
+            
+            let rolesTxt = "";
+            for(const r in this.defaultRoles){
+                if(this.defaultRoles[r] <= 0) continue;
+                rolesTxt += this.langTxt.role_uni[r as Role] + " " + this.langTxt.role[r as Role] + "\n";
+            }
+
+            const embed = new Discord.MessageEmbed({
+                title       : format(this.langTxt.p2.wish_role_desc1, {sec : this.ruleSetting.wish_role_time}),
+                description : this.langTxt.p2.wish_role_desc2 + "\n\n" + rolesTxt + "\n" + this.langTxt.p2.wish_role_desc_wish,
+                color       : this.langTxt.sys.system_color,
+            });
+
+            for(const uid in this.members){
+                this.members[uid].wishRole = Object.create(null);
+                this.members[uid].nonWishRole = Object.create(null);
+
+                const uch = this.members[uid].uchannel;
+                const uch2 = this.members[uid].uchannel2;
+                if(uch  == null || uch2 == null) continue;
+                uch.send({embed: embed}).then(message => {
+                    this.reactControllers[ReactType.WishRole][message.id] = message;
+                    for(const r in this.defaultRoles){
+                        if(this.defaultRoles[r] <= 0) continue;
+                        message.react(this.langTxt.role_uni[r as Role]);
+                    }
+                });
+                uch.send(this.langTxt.p2.wish_role_desc_nowish).then(message => {
+                    this.reactControllers[ReactType.NonWishRole][message.id] = message;
+                    const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+                    for(const r in this.defaultRoles){
+                        if(this.defaultRoles[r] <= 0) continue;
+                        m.react(this.langTxt.role_uni[r as Role]);
+                    }
+                });
+                for(const r in this.defaultRoles){
+                    if(this.defaultRoles[r] <= 0) continue;
+                    this.members[uid].wishRole[r]    = 0;
+                    this.members[uid].nonWishRole[r] = 0;
+                }
+            }
+            this.remTime = this.ruleSetting.wish_role_time;
+            gameTimer(this.gameId, this, Phase.p2_Preparation, [], dummy_gamePreparation2);
+        }
+    }
+
+    // http://www.prefield.com/algorithm/math/hungarian.html
+    hungarian(mat : number[][]) {
+        const n = mat.length;
+        const inf = 1e9;
+        let fx =  new Array<number>(n).fill(inf);
+        let fy =  new Array<number>(n).fill(0);
+        let x =  new Array<number>(n).fill(-1);
+        let y =  new Array<number>(n).fill(-1);
+        for (let i = 0; i < n; ++i) {
+            for (let j = 0; j < n; ++j) {
+                fx[i] = Math.max(fx[i], mat[i][j]);
             }
         }
-        console.log(role_arr);
-        role_arr = shuffle(role_arr);
+        for (let i = 0; i < n; ) {
+            let t =  new Array<number>(n).fill(-1);
+            let s =  new Array<number>(n+1).fill(i);
+            let q = 0;
+            for (let p = 0; p <= q && x[i] < 0; ++p) {
+                for (let k = s[p], j = 0; j < n && x[i] < 0; ++j) {
+                    if (fx[k] + fy[j] != mat[k][j] || t[j] >= 0) continue;
+                    s[++q] = y[j];
+                    t[j] = k;
+                    if (s[q] >= 0) continue;
+                    for (p = j; p >= 0; j = p) {
+                        y[j] = k = t[j];
+                        p = x[k];
+                        x[k] = j;
+                    }
+                }
+            }
+            if (x[i] < 0) {
+                let d = inf;
+                for (let k = 0; k <= q; ++k) {
+                    for (let j = 0; j < n; ++j) {
+                        if (t[j] >= 0) continue;
+                        d = Math.min(d, fx[s[k]] + fy[j] - mat[s[k]][j]);
+                    }
+                }
+                for (let j = 0; j < n; ++j) {
+                    fy[j] += (t[j] < 0 ? 0 : d);
+                }
+                for (let k = 0; k <= q; ++k) {
+                    fx[s[k]] -= d;
+                }
+            } else {
+                ++i;
+            }
+        }
+        return x;
+    }
+    gamePreparation2() {
+        let role_arr : Role[] = [];
+        if(this.ruleSetting.wish_role_time <= 0){
+            for(const r in this.defaultRoles){
+                for(let i = 0; i < this.defaultRoles[r]; ++i){
+                    role_arr.push(r as Role);
+                }
+            }
+            console.log(role_arr);
+            role_arr = shuffle(role_arr);
+        }else{
+            this.reactControllers[ReactType.WishRole] = Object.create(null);
+            this.reactControllers[ReactType.NonWishRole] = Object.create(null);
+
+            const members = shuffle(Object.keys(this.members));
+            let mat : number[][] = new Array<number[]>(members.length);
+            let roles : Role[] = [];
+            for(const r in this.defaultRoles){
+                for(let i = 0; i < this.defaultRoles[r]; ++i){
+                    roles.push(r as Role);
+                }
+            }
+            roles = shuffle(roles);
+            const scale = 100000;
+            for(let i = 0; i < members.length; ++i){
+                mat[i] = [];
+                const uid = members[i];
+                for(let j = 0; j < roles.length; ++j){
+                    const r = roles[j];
+                    const score =
+                        Math.floor(Math.random() * this.ruleSetting.wish_role_rand_weight * scale)
+                        + scale * (this.members[uid].wishRole[r] + this.members[uid].nonWishRole[r] + 20);
+                    mat[i].push(score);
+                }
+            }
+            // console.log(mat);
+            const res = this.hungarian(mat);
+            // console.log(res);
+            Object.keys(this.members).forEach((uid, idx)=>{
+                for(let i = 0; i < members.length; ++i){
+                    if(uid == members[i]){
+                        role_arr[idx] = roles[res[i]];
+                    }
+                }
+            });
+        }
 
         let WerewolfRoomField : Discord.EmbedField = {name : this.langTxt.p2.mate_names_title, value : "", inline : true};
         let WerewolfNames     = "";
@@ -1077,9 +1228,10 @@ export default class GameState {
                 author      : {name: this.members[uid].nickname, iconURL: this.members[uid].user.displayAvatarURL()},
             });
             uch.send({embed: embed});
-            const message = await uch.send(getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next);
-            this.reactControllers[ReactType.Accept][message.id] = message;
-            message.react(this.langTxt.react.o);
+            uch.send(getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next).then(message => {
+                this.reactControllers[ReactType.Accept][message.id] = message;
+                message.react(this.langTxt.react.o);
+            });
         });
         { // for Werewolf
             const role_str = Role.Werewolf;
@@ -1152,6 +1304,40 @@ export default class GameState {
             this.members[uid].uchannel2 = user_ch2;
         }));
         return true;
+    }
+    wishRoleCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean, isWish : boolean){
+        // console.log("wishRoleCheck", user.username, isAdd, isWish);
+
+        const roleName= Object.keys(this.defaultRoles).find(role => this.langTxt.role_uni[role as Role] == reaction.emoji.name) as Role | null;
+        if(roleName == null) return;
+
+        if(isAdd){
+            if(isWish){
+                this.members[user.id].wishRole[roleName] = 1;
+            } else {
+                this.members[user.id].nonWishRole[roleName] = -2;
+            }
+        } else {
+            if(isWish){
+                this.members[user.id].wishRole[roleName] = 0;
+            } else {
+                this.members[user.id].nonWishRole[roleName] = 0;
+            }
+        }
+        let txt = this.langTxt.p2.wish_role_req;
+        let dat : [number, Role][] = [];
+        for(const r in this.defaultRoles){
+            if(this.defaultRoles[r] <= 0) continue;
+            dat.push([this.members[user.id].wishRole[r] + this.members[user.id].nonWishRole[r], r as Role]);
+        }
+        dat.sort().reverse();
+        for(const p of dat){
+            txt += " " + this.langTxt.emo[p[1]] + this.langTxt.role[p[1]] + p[0];
+        }
+        const uch = this.members[user.id].uchannel;
+        if(uch != null){
+            uch.send(txt);
+        }
     }
     preparationAccept(message : Discord.Message, user : Discord.User){
         if(Object.keys(this.members).find(k => k == user.id) == null) return;
@@ -2154,10 +2340,17 @@ export default class GameState {
         if(uch == null) return;
 
         for(let i = 0; i < this.reactControllers.length; i++) {
+            if(Object.keys(this.reactControllers[i]).find(v => v == reaction.message.id) == null) continue;
             if(i == ReactType.CutTime){
                 if(this.phase == Phase.p4_Daytime) {
                     if(reaction.message.channel.id != uch.id) return;
                     this.cutTimeCheck(reaction, user, false);
+                }
+            }
+            if(i == ReactType.WishRole || i == ReactType.NonWishRole){
+                if(this.phase == Phase.p2_Preparation) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.wishRoleCheck(reaction, user, false, i == ReactType.WishRole);
                 }
             }
         }
@@ -2218,6 +2411,12 @@ export default class GameState {
                 if(this.phase == Phase.p4_Daytime) {
                     if(reaction.message.channel.id != uch.id) return;
                     this.cutTimeCheck(reaction, user, true);
+                }
+            }
+            if(i == ReactType.WishRole || i == ReactType.NonWishRole){
+                if(this.phase == Phase.p2_Preparation) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.wishRoleCheck(reaction, user, true, i == ReactType.WishRole);
                 }
             }
         }
@@ -2408,16 +2607,19 @@ function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : 
 }
 
 ////////////////////////////////////////////
-// Phase.p4_Daytime
+// dummys
 ////////////////////////////////////////////
+
+
+function dummy_gamePreparation2(gid : number, obj : GameState){
+    if(gid != obj.gameId) return;
+    obj.gamePreparation2();
+}
+
 function dummy_startP4Daytime(gid : number, obj : GameState){
     if(gid != obj.gameId) return;
     obj.startP4_Daytime();
 }
-
-////////////////////////////////////////////
-// Phase.p5_Vote
-////////////////////////////////////////////
 
 function dummy_startP5Vote(gid : number, obj : GameState){
     if(gid != obj.gameId) return;
