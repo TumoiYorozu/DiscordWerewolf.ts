@@ -9,13 +9,13 @@
     },
     first_nights_fortune : "random_white",
     continuous_guard  : false,
-    confirmation_sec  : 20,
+    confirmation_sec  : 30,
 
     wish_role_rand_weight : 3,
-    wish_role_time        : 20,
+    wish_role_time        : 30,
 
     first_night : {
-        first_night_time : 180,
+        first_night_time : 60,
         alert_times : [],
     },
 
