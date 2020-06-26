@@ -1035,6 +1035,8 @@ export default class GameState {
         this.streams.setBGM(this.srvSetting.music.first_night);
         this.httpGameState.updatePhase(this.langTxt.p2.phase_name);
 
+        this.updateRoomsRW();
+
         if(this.ruleSetting.wish_role_time <= 0){
             this.gamePreparation2();
         } else {
@@ -1143,6 +1145,8 @@ export default class GameState {
         return x;
     }
     gamePreparation2() {
+
+        const enable_confirmation = (this.ruleSetting.wish_role_time <= 0);
         let role_arr : Role[] = [];
         if(this.ruleSetting.wish_role_time <= 0){
             for(const r in this.defaultRoles){
@@ -1203,7 +1207,6 @@ export default class GameState {
                 WerewolfNames += this.members[uid].nickname + " ";
             }
         });
-        this.updateRoomsRW();
 
         this.resetReactedMember();
         this.p2CanForceStartGame = false;
@@ -1228,10 +1231,12 @@ export default class GameState {
                 author      : {name: this.members[uid].nickname, iconURL: this.members[uid].user.displayAvatarURL()},
             });
             uch.send({embed: embed});
-            uch.send(getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next).then(message => {
-                this.reactControllers[ReactType.Accept][message.id] = message;
-                message.react(this.langTxt.react.o);
-            });
+            if(enable_confirmation){
+                uch.send(getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next).then(message => {
+                    this.reactControllers[ReactType.Accept][message.id] = message;
+                    message.react(this.langTxt.react.o);
+                });
+            }
         });
         { // for Werewolf
             const role_str = Role.Werewolf;
@@ -1245,11 +1250,15 @@ export default class GameState {
             });
             this.channels.Werewolf.send({embed: embed});
         }
-        this.channels.Living.send({embed:{
-            title       : format(this.langTxt.p2.done_preparations, {sec : this.ruleSetting.confirmation_sec}),
-            color       : this.langTxt.sys.system_color,
-        }});
-        setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this);
+        if(enable_confirmation){
+            this.channels.Living.send({embed:{
+                title       : format(this.langTxt.p2.done_preparations, {sec : this.ruleSetting.confirmation_sec}),
+                color       : this.langTxt.sys.system_color,
+            }});
+            setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this);
+        } else {
+            this.startFirstNight();
+        }
     }
 
     getUserChanncelName(uname : string){
@@ -1349,7 +1358,7 @@ export default class GameState {
         this.reactedMember[user.id] = 1;
         if(Object.keys(this.reactedMember).length == Object.keys(this.members).length){
             this.channels.Living.send(this.langTxt.p2.all_accept);
-            this.startFirstNight(message);
+            this.startFirstNight();
         }
     }
     checkAcceptTimeout(gid : number, obj : GameState){
@@ -1364,11 +1373,11 @@ export default class GameState {
         obj.channels.Living.send(format(obj.langTxt.p2.incomplete_ac, {users:non_ac_users, cmd:obj.langTxt.p2.cmd_start_force[0]}));
         obj.p2CanForceStartGame = true;
     }
-    forceStartGame(message : Discord.Message){
+    forceStartGame(){
         if(this.p2CanForceStartGame){
             this.p2CanForceStartGame = false;
             this.channels.Living.send(this.langTxt.p2.force_start);
-            this.startFirstNight(message);
+            this.startFirstNight();
         }else{
             this.channels.Living.send(format(this.langTxt.p2.cant_force_start, {sec : this.ruleSetting.confirmation_sec}));
         }
@@ -1377,7 +1386,7 @@ export default class GameState {
     ////////////////////////////////////////////
     // Phase.p3_FirstNight
     ////////////////////////////////////////////
-    startFirstNight(message : Discord.Message){
+    startFirstNight(){
         this.phase = Phase.p3_FirstNight;
         this.remTime = this.ruleSetting.first_night.first_night_time;
         this.updateRoomsRW();
@@ -2535,7 +2544,7 @@ export default class GameState {
             }
             if(message.channel.id == this.channels.Living.id){
                 if(isThisCommand(message.content, this.langTxt.p2.cmd_start_force) >= 0){
-                    this.forceStartGame(message);
+                    this.forceStartGame();
                     return;
                 }
             }
