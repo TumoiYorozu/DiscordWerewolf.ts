@@ -621,7 +621,8 @@ export default class GameState {
                         addPerm(uid, Perm.RW,       permDeadVoice  );
                     }
                     if(this.members[uid].allowWolfRoom){
-                        if(this.members[uid].isLiving) {
+                        const enableDaytimeWolfRoom = false;
+                        if(enableDaytimeWolfRoom && this.members[uid].isLiving) {
                             addPerm(uid, Perm.RW,       permWerewolf);
                         } else {
                             addPerm(uid, Perm.ReadOnly, permWerewolf);
