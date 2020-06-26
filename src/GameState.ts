@@ -1007,6 +1007,27 @@ export default class GameState {
         }
         this.channels.Living.send(send_text);
     }
+    kickEntryMember(message : Discord.Message){
+        let send_text : string = "";
+        if(message.mentions.members == null) return;
+        for(const mem of message.mentions.members){
+            const uid = mem[0];
+            if(uid in this.members){
+                delete this.members[uid];
+                send_text += format(this.langTxt.p1.see_you, {user : getNicknameFromMem(mem[1])});
+                this.httpGameState.updateMembers();
+            }else{
+                send_text += format(this.langTxt.p1.no_join, {user : getNicknameFromMem(mem[1]), member_list : this.langTxt.sys.cmd_member_list[0]});
+            }
+            send_text += "\n";
+        }
+        const now_num = Object.keys(this.members).length;
+        send_text += "\n" + format(this.langTxt.p1.current_count, {num : now_num, all : this.reqMemberNum});
+        if(now_num == this.reqMemberNum){
+            send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
+        }
+        this.channels.Living.send(send_text);
+    }
     async checkStartGame(message : Discord.Message){
         const now_num = Object.keys(this.members).length;
         if(now_num < this.reqMemberNum){
@@ -2519,6 +2540,10 @@ export default class GameState {
             }
             if(isThisCommand(message.content, this.langTxt.p1.cmd_leave) >= 0){
                 this.leaveMember(message);
+                return;
+            }
+            if(isThisCommand(message.content, this.langTxt.p1.cmd_kick) >= 0){
+                this.kickEntryMember(message);
                 return;
             }
             if(isThisCommand(message.content, this.langTxt.p1.cmd_start) >= 0){
