@@ -1217,6 +1217,8 @@ export default class GameState {
         let WerewolfRoomField : Discord.EmbedField = {name : this.langTxt.p2.mate_names_title, value : "", inline : true};
         let WerewolfNames     = "";
 
+        let MasonField : Discord.EmbedField = {name : this.langTxt.p2.mate_names_title, value : "", inline : true};
+
         Object.keys(this.members).forEach((uid, i)=>{
             const r = role_arr[i];
             this.members[uid].role = r;
@@ -1226,6 +1228,9 @@ export default class GameState {
             if(allowWolfRoom){
                 WerewolfRoomField.value += this.members[uid].nickname + " (" + this.langTxt.role[r]+ ")\n";
                 WerewolfNames += this.members[uid].nickname + " ";
+            }
+            if(r == Role.Mason) {
+                MasonField.value += this.members[uid].nickname + "\n";
             }
         });
 
@@ -1242,6 +1247,9 @@ export default class GameState {
             let fields : Discord.EmbedField[] = [];
             if(this.members[uid].allowWolfRoom){
                 fields.push(WerewolfRoomField);
+            }
+            if(this.members[uid].role == Role.Mason) {
+                fields.push(MasonField);
             }
             const embed = new Discord.MessageEmbed({
                 title       : format(this.langTxt.p2.announce_role, {role : this.langTxt.role[role_str], team : this.langTxt.team_name[team]}),
