@@ -247,6 +247,7 @@ export const LangTypeFormat = obj({
     :obj({
         cmd_join  : arr(str),
         cmd_leave : arr(str),
+        cmd_kick : arr(str),
         cmd_start : arr(str),
         cmd_join_force  : arr(str),
         cmd_setroles      : arr(str),
