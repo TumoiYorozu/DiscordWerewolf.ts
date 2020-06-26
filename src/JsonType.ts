@@ -383,6 +383,13 @@ export const LangTypeFormat = obj({
         breakup       : str,
     }),
 
+    baker
+    :obj({
+        repertoire : arr(str),
+        deliver    : str,
+        killed     : str,
+    }),
+
     fortune : fortune_or_priest,
     priest  : fortune_or_priest,
 

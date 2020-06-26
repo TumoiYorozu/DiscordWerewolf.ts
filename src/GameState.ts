@@ -1510,6 +1510,26 @@ export default class GameState {
             // 未実装
         }
         this.killNext    = [];
+
+        if(this.defaultRoles[Role.Baker] > 0){
+            if(Object.keys(this.members).some(uid => this.members[uid].isLiving && this.members[uid].role == Role.Baker)){
+                const bread = this.langTxt.baker.repertoire[Math.floor(Math.random() * this.langTxt.baker.repertoire.length)];
+                const embed = new Discord.MessageEmbed({
+                    author    : {name: this.langTxt.role.Baker, iconURL: this.langTxt.role_img.Baker},
+                    title     : format(this.langTxt.baker.deliver, {bread : bread}),
+                    color     : this.langTxt.team_color.Good,
+                });
+                this.channels.Living.send({embed:embed});
+            } else if(Object.keys(this.members).some(uid => this.members[uid].livingDays == this.dayNumber-1 && this.members[uid].role == Role.Baker)){
+                const embed = new Discord.MessageEmbed({
+                    author    : {name: this.langTxt.role.Baker, iconURL: this.langTxt.role_img.Baker},
+                    title     : this.langTxt.baker.killed,
+                    color     : this.langTxt.sys.killed_color,
+                });
+                this.channels.Living.send({embed:embed});
+            }
+        }
+
         this.remTime = Math.max(0, this.ruleSetting.day.day_time - this.ruleSetting.day.reduction_time * (this.dayNumber - 1));
         // this.channels.Living.send(format(this.langTxt.p4.length_of_the_day, {time : this.getTimeFormatFromSec(this.remTime)}));
         this.channels.Living.send({embed:{
