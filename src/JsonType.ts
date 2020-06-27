@@ -383,6 +383,21 @@ export const LangTypeFormat = obj({
         breakup       : str,
     }),
 
+    baker
+    :obj({
+        repertoire : arr(str),
+        deliver    : str,
+        killed     : str,
+    }),
+
+    dictator 
+    :obj({
+        uni          : str,
+        button_title : str,
+        button_desc  : str,
+        exercise     : str,
+    }),
+
     fortune : fortune_or_priest,
     priest  : fortune_or_priest,
 
