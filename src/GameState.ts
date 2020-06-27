@@ -421,8 +421,13 @@ export default class GameState {
             if(s[i] == 'S') this.addRole(Role.Seer);
             if(s[i] == 'P') this.addRole(Role.Priest);
             if(s[i] == 'K') this.addRole(Role.Knight);
+            if(s[i] == 'M') this.addRole(Role.Mason);
+            if(s[i] == 'D') this.addRole(Role.Dictator);
+            if(s[i] == 'B') this.addRole(Role.Baker);
+
             if(s[i] == 'W') this.addRole(Role.Werewolf);
             if(s[i] == 'T') this.addRole(Role.Traitor);
+            if(s[i] == 'C') this.addRole(Role.Communicatable);
         }
         console.log(this.defaultRoles);
         this.sendWantNums(this.channels.Living);
