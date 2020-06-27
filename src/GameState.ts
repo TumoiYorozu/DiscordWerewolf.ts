@@ -2171,6 +2171,8 @@ export default class GameState {
         if(this.wolfValidFrom.find(i => i == user.id) == null) return;
         const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
         if(tid == null) return;
+
+        if(this.wolfValidTo.find(id => id == tid) == null) return;
         if(reaction.message.channel.id != this.channels.Werewolf.id) return;
         {
             const change = this.wolfVote != "";
@@ -2491,7 +2493,6 @@ export default class GameState {
             }
             if(i == ReactType.Knight || i == ReactType.Seer){
                 if(this.phase == Phase.p6_Night) {
-                    if(this.members[uid].validVoteID.length == 0) return;
                     if(reaction.message.channel.id != uch.id) return;
                     if(i == ReactType.Knight){
                         this.nightKnightCheck(reaction, user);
@@ -2504,7 +2505,6 @@ export default class GameState {
             if(i == ReactType.Werewolf){
                 if(this.phase == Phase.p6_Night) {
                     if(reaction.message.channel.id != this.channels.Werewolf.id) return;
-                    if(this.members[uid].validVoteID.length == 0) return;
                     this.nightWerewolfCheck(reaction, user);
                 }
             }
