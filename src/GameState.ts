@@ -139,6 +139,7 @@ class GameMember {
     firstCallCoTime : number | null = null;
     coRole          : Role   | null = null;
     callLog         : [string, boolean][] = [];
+    roleCmdInvokeNum:number    = 0;
     constructor(message : Discord.Message) {
         this.user = message.author;
         this.member = message.member;
@@ -162,6 +163,7 @@ class GameMember {
         this.firstCallCoTime = null;
         this.coRole     = null;
         this.callLog    = [];
+        this.roleCmdInvokeNum = 0;
     }
 }
 
@@ -214,6 +216,7 @@ enum ReactType {
     CallWhite,
     CallBlack,
     CutTime,
+    Dictator,
 }
 
 export enum KickReason {
@@ -266,6 +269,7 @@ export default class GameState {
     wolfValidTo     : string[];
     wolfValidFrom   : string[];
     wolfLog         : string[];
+    dictatorVoteMode: string = "";
     httpGameState   : HttpGameState;
 
     constructor(clients : Discord.Client[], upperGames : {[key: string]: GameState}, guild : Discord.Guild, guild2 : Discord.Guild, ch : GameChannels, ch2 : GameChannels, parentID : string, httpServer : HttpServer, srvLangTxt : LangType, srvRuleSetting : RuleType, srvSetting : ServerSettingsType) {
@@ -329,6 +333,7 @@ export default class GameState {
         this.wolfValidTo   = [];
         this.wolfValidFrom = [];
         this.wolfLog       = [];
+        this.dictatorVoteMode = "";
         for(let key in ReactType){
             this.reactControllers.push(Object.create(null));
         }
@@ -1539,6 +1544,7 @@ export default class GameState {
         this.daytimeStartTime = Date.now();
         this.makeCoCallController();
         this.makeCutTimeController();
+        this.makeDictatorController();
         this.voteNum     = 0;
         this.runoffNum   = 0;
         this.stopTimerRequest = false;
@@ -1624,6 +1630,27 @@ export default class GameState {
             uch.send(txt).then(message => {
                 this.reactControllers[ReactType.CutTime][message.id] = message;
                 message.react(this.langTxt.react.o);
+            })
+        }
+    }
+    makeDictatorController(){
+        if(this.defaultRoles[Role.Dictator] <= 0) return;
+        this.reactControllers[ReactType.Dictator] = Object.create(null);
+        this.dictatorVoteMode = "";
+        for(const uid in this.members){
+            if(!this.members[uid].isLiving) continue;
+            if(this.members[uid].role != Role.Dictator) continue;
+            if(this.members[uid].roleCmdInvokeNum > 0) continue;
+            const uch  = this.members[uid].uchannel;
+            if(uch == null) continue;
+            const embed= new Discord.MessageEmbed({
+                author      : {name: this.langTxt.dictator.button_title, iconURL: this.langTxt.role_img.Dictator},
+                title       : this.langTxt.dictator.button_desc,
+                color       : this.langTxt.sys.killed_color,
+            });
+            uch.send(embed).then(message => {
+                this.reactControllers[ReactType.Dictator][message.id] = message;
+                message.react(this.langTxt.dictator.uni);
             })
         }
     }
@@ -1745,6 +1772,25 @@ export default class GameState {
             }
         }
     }
+    dictatorCheck(reaction : Discord.MessageReaction, user : Discord.User) {
+        const uch  = this.members[user.id].uchannel;
+        if(uch == null) return;
+        this.members[user.id].roleCmdInvokeNum++;
+        const embed= new Discord.MessageEmbed({
+            author      : {name: this.langTxt.role.Dictator, iconURL: this.langTxt.role_img.Dictator},
+            title       : this.langTxt.dictator.exercise,
+            color       : this.langTxt.sys.killed_color,
+        });
+        for(const uid in this.members){
+            if(!this.members[uid].isLiving) continue;
+            const uch = this.members[uid].uchannel;
+            if(uch == null) continue;
+            uch.send(embed);
+        }
+        this.channels.Living.send(embed);
+        this.dictatorVoteMode = user.id;
+        this.startP5_Vote();
+    }
 
     ////////////////////////////////////////////
     // Phase.p5_Vote
@@ -1761,6 +1807,7 @@ export default class GameState {
         this.reactControllers[ReactType.CallWhite] = Object.create(null);
         this.reactControllers[ReactType.CallBlack] = Object.create(null);
         this.reactControllers[ReactType.CutTime]   = Object.create(null);
+        this.reactControllers[ReactType.Dictator]  = Object.create(null);
         this.cutTimeMember = Object.create(null);
 
         if(this.phase != Phase.p5_Vote){
@@ -1774,6 +1821,7 @@ export default class GameState {
             const uch = this.members[uid].uchannel;
             if(uch == null) return this.err();
             this.members[uid].voteTo = "";
+            if(this.dictatorVoteMode != "" && this.dictatorVoteMode != uid) continue;
             let list = "";
             for(const tid in this.members){
                 if(tid == uid) continue;
@@ -2476,6 +2524,12 @@ export default class GameState {
                 if(this.phase == Phase.p2_Preparation) {
                     if(reaction.message.channel.id != uch.id) return;
                     this.wishRoleCheck(reaction, user, true, i == ReactType.WishRole);
+                }
+            }
+            if(i == ReactType.Dictator){
+                if(this.phase == Phase.p4_Daytime) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.dictatorCheck(reaction, user);
                 }
             }
         }
