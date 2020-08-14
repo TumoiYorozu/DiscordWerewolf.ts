@@ -49,7 +49,8 @@ Discord 上で人狼ゲームを行うための GM bot です．ゲームの進�
 [ゲームの進行](../../wiki/ゲームの進行) にて，ゲーム中の様子を含め，詳しく説明されています．
 
 ## 投げ銭先
-Bitcoin : 3QZPMnkzsubp1SxYT7Z9rMpXRc6Z1jBj5x
-PayPal : https://paypal.me/TumoiYorozu 
+Bitcoin : 3QZPMnkzsubp1SxYT7Z9rMpXRc6Z1jBj5x  
+PayPal : https://paypal.me/TumoiYorozu   
+
 
 
