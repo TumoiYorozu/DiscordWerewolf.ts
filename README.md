@@ -14,6 +14,7 @@ Discord 上で人狼ゲームを行うための GM bot です．
 
 [コマンド一覧](../../wiki/コマンド一覧)
 
+
 # 概要
 
 Discord 上で人狼ゲームを行うための GM bot です．ゲームの進行を bot が完全に行ってくれるため進行役ユーザーを必要としません．  
@@ -46,4 +47,9 @@ Discord 上で人狼ゲームを行うための GM bot です．ゲームの進�
 
 
 [ゲームの進行](../../wiki/ゲームの進行) にて，ゲーム中の様子を含め，詳しく説明されています．
+
+## 投げ銭先
+Bitcoin : 3QZPMnkzsubp1SxYT7Z9rMpXRc6Z1jBj5x
+PayPal : https://paypal.me/TumoiYorozu 
+
 
