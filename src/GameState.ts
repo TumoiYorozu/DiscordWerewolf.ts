@@ -2688,11 +2688,11 @@ export default class GameState {
             return;
         }
         ///////////////////////////////////////////////////////////////////
+        if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
+            this.resetGame();
+            return;
+        }
         if(this.phase == Phase.p7_GameEnd){
-            if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
-                this.resetGame();
-                return;
-            }
             if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
                 this.gameEndFinish();
                 return;
