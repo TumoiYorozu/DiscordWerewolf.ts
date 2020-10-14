@@ -51,7 +51,7 @@ Discord 上で人狼ゲームを行うための GM bot です．ゲームの進�
 ## 投げ銭先
 Bitcoin : 3QZPMnkzsubp1SxYT7Z9rMpXRc6Z1jBj5x  
 PayPal : https://paypal.me/TumoiYorozu   
-複数のプロジェクトで同じ投げ銭先なので，コメントで「この Bot を使ったよ」と書いてくれると嬉しいです．
+複数のプロジェクトで同じ投げ銭先なので，コメントで「人狼 Bot を使ったよ」と書いてくれると嬉しいです．
 
 また，この Bot を広めるいう『無償の支援』も歓迎しております．
 
