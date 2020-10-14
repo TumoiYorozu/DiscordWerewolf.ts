@@ -1749,6 +1749,24 @@ export default class GameState {
         this.channels.GameLog.send(embed);
         this.httpGameState.updateMembers();
     }
+    coCallCancelCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType){
+        const uch = this.members[user.id].uchannel;
+        if(uch == null) return this.err();
+        let embed : Discord.MessageEmbed | null = null;
+
+        if(type == ReactType.CO) {
+            // COはキャンセルできない。
+            // 村スラ等は別の役職を押せばいいので問題ない。
+        } else {
+            // Callは間違えて押したときキャンセルしたい。
+            const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+            if(tid == null) return;
+            const newLog = this.members[user.id].callLog.filter(p => p[0] != tid);
+            this.members[user.id].callLog = newLog;
+        }
+
+        this.httpGameState.updateMembers();
+    }
     cutTimeCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean){
         if(this.phase != Phase.p4_Daytime) return;
         if(reaction.emoji.toString() != this.langTxt.react.o) return;
@@ -2465,6 +2483,12 @@ export default class GameState {
                 if(this.phase == Phase.p2_Preparation) {
                     if(reaction.message.channel.id != uch.id) return;
                     this.wishRoleCheck(reaction, user, false, i == ReactType.WishRole);
+                }
+            }
+            if(i == ReactType.CO || i == ReactType.CallWhite || i == ReactType.CallBlack){
+                if(this.phase == Phase.p4_Daytime) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.coCallCancelCheck(reaction, user, i);
                 }
             }
         }
