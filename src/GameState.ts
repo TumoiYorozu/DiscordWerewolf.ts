@@ -1278,7 +1278,7 @@ export default class GameState {
                 });
             }
         });
-        { // for Werewolf
+        if(WerewolfRoomField.value !== ""){ // for Werewolf
             const role_str = Role.Werewolf;
             const team = getDefaultTeams(role_str);
             const embed = new Discord.MessageEmbed({
