@@ -1427,6 +1427,7 @@ export default class GameState {
     // Phase.p3_FirstNight
     ////////////////////////////////////////////
     startFirstNight(){
+        this.streams.setBGM(this.srvSetting.music.night);
         this.phase = Phase.p3_FirstNight;
         this.remTime = this.ruleSetting.first_night.first_night_time;
         this.updateRoomsRW();
