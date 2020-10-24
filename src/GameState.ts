@@ -2571,6 +2571,12 @@ export default class GameState {
         const isDeveloper = (message.author.id in this.developer);
         const isGM        = isDeveloper || (message.author.id in this.GM);
 
+        if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
+            console.log("Exit game");
+            this.gameEndFinish();
+            return;
+        }
+
         if(isThisCommand(message.content, this.langTxt.sys.cmd_reload_rule) >= 0){
             if(isGM){ this.reloadDefaultRule();
             } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
@@ -2688,13 +2694,10 @@ export default class GameState {
             return;
         }
         ///////////////////////////////////////////////////////////////////
-        if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
-            this.resetGame();
-            return;
-        }
         if(this.phase == Phase.p7_GameEnd){
-            if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
-                this.gameEndFinish();
+            if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
+                console.log("Reset game");
+                this.resetGame();
                 return;
             }
         }
@@ -2704,6 +2707,7 @@ export default class GameState {
 function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : number[], func : (gid : number, obj : GameState)=> any, callFromTimer : boolean = false){
     //! no use "this."
     // console.log(obj.remTime);
+    if(obj == null) return;
     if(gid != obj.gameId) return;
     if(obj.phase != tPhase) return;
     obj.isTimerProgress = true;
