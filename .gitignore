@@ -3,5 +3,8 @@ node_modules/
 *local_private/
 .vscode/
 
-media/dova_syndrome_BGMs/
-server_settings/dova_syndrome_BGMs.json5
+media
+!media/david.ja
+
+server_settings
+!server_settings/default.json5
