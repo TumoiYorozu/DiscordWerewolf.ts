@@ -271,6 +271,7 @@ export default class GameState {
     wolfLog         : string[];
     dictatorVoteMode: string = "";
     httpGameState   : HttpGameState;
+    timerList       : NodeJS.Timer[];
 
     constructor(clients : Discord.Client[], upperGames : {[key: string]: GameState}, guild : Discord.Guild, guild2 : Discord.Guild, ch : GameChannels, ch2 : GameChannels, parentID : string, httpServer : HttpServer, srvLangTxt : LangType, srvRuleSetting : RuleType, srvSetting : ServerSettingsType) {
         this.clients     = clients;
@@ -301,6 +302,8 @@ export default class GameState {
         this.httpServer    = httpServer;
         this.gameSessionID = this.resetServerSession();
         this.httpGameState = this.httpServer.games[this.gameSessionID];
+        this.timerList   = [];
+
         this.reset()
         this.setRoles(this.ruleSetting)
         this.streams     = new LiveStream(ch, ch2, this.httpGameState, srvLangTxt, srvRuleSetting);
@@ -315,6 +318,10 @@ export default class GameState {
         this.roleText = srvLangTxt.role as {[key: string]: string};
     }
     reset(){
+        for(let timer of this.timerList){
+            clearTimeout(timer);
+        }
+        this.timerList = [];
         this.phase = Phase.p0_UnStarted
         for(const uid in this.members){
             this.members[uid].reset();
@@ -1051,6 +1058,23 @@ export default class GameState {
         }
         await this.gamePreparation(message);
     }
+    resetGame(){
+        this.reset();
+        this.start_1Wanted();
+        this.sendMemberList(this.channels.Living);
+
+        const now_num = Object.keys(this.members).length;
+        let send_text = format(this.langTxt.p1.current_count, {num : now_num, all : this.reqMemberNum});
+        if(now_num == this.reqMemberNum){
+            send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
+        }
+        this.channels.Living.send(send_text);
+
+        for(const mid in this.members){
+            this.members[mid].isLiving = true;
+        }
+        this.httpGameState.updateMembers();
+    }
     ////////////////////////////////////////////
     // Phase.p2_Preparation
     ////////////////////////////////////////////
@@ -1295,7 +1319,7 @@ export default class GameState {
                 title       : format(this.langTxt.p2.done_preparations, {sec : this.ruleSetting.confirmation_sec}),
                 color       : this.langTxt.sys.system_color,
             }});
-            setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this);
+            this.timerList.push(setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this));
         } else {
             this.startFirstNight();
         }
@@ -2399,23 +2423,6 @@ export default class GameState {
         gameTimer(this.gameId, this, Phase.p7_GameEnd, this.ruleSetting.after_game.alert_times, dummy_gameEndFinish);
     }
 
-    resetGame(){
-        this.reset();
-        this.start_1Wanted();
-        this.sendMemberList(this.channels.Living);
-
-        const now_num = Object.keys(this.members).length;
-        let send_text = format(this.langTxt.p1.current_count, {num : now_num, all : this.reqMemberNum});
-        if(now_num == this.reqMemberNum){
-            send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
-        }
-        this.channels.Living.send(send_text);
-
-        for(const mid in this.members){
-            this.members[mid].isLiving = true;
-        }
-        this.httpGameState.updateMembers();
-    }
     gameEndFinish(){
         this.destroy();
     }
@@ -2583,6 +2590,11 @@ export default class GameState {
         const isDeveloper = (message.author.id in this.developer);
         const isGM        = isDeveloper || (message.author.id in this.GM);
 
+        if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
+            this.resetGame();
+            return;
+        }
+
         if(isThisCommand(message.content, this.langTxt.sys.cmd_reload_rule) >= 0){
             if(isGM){ this.reloadDefaultRule();
             } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
@@ -2701,10 +2713,6 @@ export default class GameState {
         }
         ///////////////////////////////////////////////////////////////////
         if(this.phase == Phase.p7_GameEnd){
-            if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
-                this.resetGame();
-                return;
-            }
             if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
                 this.gameEndFinish();
                 return;
@@ -2720,7 +2728,7 @@ function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : 
     if(obj.phase != tPhase) return;
     obj.isTimerProgress = true;
     if(obj.stopTimerRequest){
-        setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true);
+        obj.timerList.push(setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true));
         return;
     }
     if(callFromTimer){
@@ -2760,7 +2768,7 @@ function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : 
         func(gid, obj);
     }else{
         obj.remTime -= 1;
-        setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true);
+        obj.timerList.push(setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true));
     }
 }
 
