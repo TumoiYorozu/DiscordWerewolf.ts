@@ -1278,7 +1278,7 @@ export default class GameState {
                 });
             }
         });
-        if(WerewolfRoomField.value !== ""){ // for Werewolf
+        { // for Werewolf
             const role_str = Role.Werewolf;
             const team = getDefaultTeams(role_str);
             const embed = new Discord.MessageEmbed({
@@ -1427,7 +1427,6 @@ export default class GameState {
     // Phase.p3_FirstNight
     ////////////////////////////////////////////
     startFirstNight(){
-        this.streams.setBGM(this.srvSetting.music.night);
         this.phase = Phase.p3_FirstNight;
         this.remTime = this.ruleSetting.first_night.first_night_time;
         this.updateRoomsRW();
@@ -1748,24 +1747,6 @@ export default class GameState {
         embed.fields = fields;
         this.channels.Living.send(embed);
         this.channels.GameLog.send(embed);
-        this.httpGameState.updateMembers();
-    }
-    coCallCancelCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType){
-        const uch = this.members[user.id].uchannel;
-        if(uch == null) return this.err();
-        let embed : Discord.MessageEmbed | null = null;
-
-        if(type == ReactType.CO) {
-            // COはキャンセルできない。
-            // 村スラ等は別の役職を押せばいいので問題ない。
-        } else {
-            // Callは間違えて押したときキャンセルしたい。
-            const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
-            if(tid == null) return;
-            const newLog = this.members[user.id].callLog.filter(p => p[0] != tid);
-            this.members[user.id].callLog = newLog;
-        }
-
         this.httpGameState.updateMembers();
     }
     cutTimeCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean){
@@ -2486,12 +2467,6 @@ export default class GameState {
                     this.wishRoleCheck(reaction, user, false, i == ReactType.WishRole);
                 }
             }
-            if(i == ReactType.CO || i == ReactType.CallWhite || i == ReactType.CallBlack){
-                if(this.phase == Phase.p4_Daytime) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.coCallCancelCheck(reaction, user, i);
-                }
-            }
         }
     }
     reactCommand(reaction : Discord.MessageReaction, user : Discord.User){
@@ -2571,12 +2546,6 @@ export default class GameState {
 
         const isDeveloper = (message.author.id in this.developer);
         const isGM        = isDeveloper || (message.author.id in this.GM);
-
-        if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
-            console.log("Exit game");
-            this.gameEndFinish();
-            return;
-        }
 
         if(isThisCommand(message.content, this.langTxt.sys.cmd_reload_rule) >= 0){
             if(isGM){ this.reloadDefaultRule();
@@ -2697,8 +2666,11 @@ export default class GameState {
         ///////////////////////////////////////////////////////////////////
         if(this.phase == Phase.p7_GameEnd){
             if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
-                console.log("Reset game");
                 this.resetGame();
+                return;
+            }
+            if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
+                this.gameEndFinish();
                 return;
             }
         }
@@ -2708,7 +2680,6 @@ export default class GameState {
 function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : number[], func : (gid : number, obj : GameState)=> any, callFromTimer : boolean = false){
     //! no use "this."
     // console.log(obj.remTime);
-    if(obj == null) return;
     if(gid != obj.gameId) return;
     if(obj.phase != tPhase) return;
     obj.isTimerProgress = true;

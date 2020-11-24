@@ -141,7 +141,6 @@ export class HttpGameState {
         this.updateMembers();
     }
     wsSend(message : string){
-        if(this.subscribers === undefined) return;
         // console.log("wsSend", message);
         this.subscribers.forEach((session, i) => {
             if (session.ws.readyState === session.ws.OPEN) { // check if it is still connected

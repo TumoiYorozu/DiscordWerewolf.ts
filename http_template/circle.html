@@ -6,9 +6,8 @@
 </head>
 <body>
 <div class="circleStates" id="state">Connecting...</div>
-<div class="circleStates" id="time"></div>
+<div class="circleStates" id="time"> No Timer </div>
 <div class="circleBase" id="members_base">
-  <!--
   <div class="member speak">
     <div class="avatar">
       <img src="https://cdn.discordapp.com/embed/avatars/0.png">
@@ -85,7 +84,7 @@
     <img class="role" src="https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9d9-200d-2642-fe0f.png">
     <div class="aname"> EEEEE-san </div>
   </div>
-  -->
+
 </div>
 
 
@@ -261,7 +260,7 @@ window.onload = function () {
     }
     if (message.data.startsWith('x')) {
       ws.onclose = () => { };
-      document.getElementById('state').innerHTML = 'エラー：古いモニターです。最新のモニターにアクセスしてください。（Invalid Room ID）';
+      document.getElementById('state').innerHTML = 'Invalid Room ID...';
       return;
     }
   }
