@@ -294,6 +294,8 @@
         coming_out_open_title : "{name} さんが「{role}」だと正体を明かしました",
         call_white_open_title : "{name} さんが {trgt} さんを「白」だとコールしました",
         call_black_open_title : "{name} さんが {trgt} さんを「黒」だとコールしました",
+        call_white_cancel_title : "{name} さんが {trgt} さんの「白」コールをキャンセルしました",
+        call_black_cancel_title : "{name} さんが {trgt} さんの「黒」コールをキャンセルしました",
         call_time             : "昼が始まってから {sec} 秒",
         publish_order         : "宣言順",
 

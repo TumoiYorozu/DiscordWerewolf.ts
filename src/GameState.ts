@@ -1659,7 +1659,44 @@ export default class GameState {
             })
         }
     }
-    coCallCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType){
+    makeCoCallLogFields(){
+        let callLogs : [string, number, string, string][] = []; // role, time, author, data
+        let coLogs   : [number, string][] = []; // time, data
+        for(const uid in this.members){
+            const ctime = this.members[uid].firstCallCoTime;
+            if(ctime == null) continue;
+            const role = this.members[uid].coRole;
+            if(role == null){
+                coLogs.push([ctime, this.langTxt.team_emo.Unknown + " " + this.members[uid].nickname]);
+            } else {
+                coLogs.push([ctime, this.langTxt.emo[role] + " " + this.members[uid].nickname]);
+            }
+            if(this.members[uid].callLog.length != 0){
+                const author = (role ? this.langTxt.emo[role] : this.langTxt.team_emo.Unknown) + this.members[uid].nickname;
+                let dat = "";
+                for(const p of this.members[uid].callLog){
+                    dat += this.langTxt.team_emo[p[1] ? "Black" : "White"] + " "+ this.members[p[0]].nickname + "\n";
+                }
+                const r0 = (role == null ? "" : role == Role.Seer ? "0" : role == Role.Priest ? "1" : role);
+                callLogs.push([r0, ctime, author, dat]);
+            }
+        }
+        callLogs.sort();
+        coLogs.sort();
+        let fields : Discord.EmbedField[] = [];
+        for(const p of callLogs){
+            fields.push({inline : true, name : p[2], value:p[3]});
+        }
+        if(coLogs.length > 0) {
+            let dat = "";
+            for(const p of coLogs){
+                dat += p[1] + "\n";
+            }
+            fields.push({inline : true, name : this.langTxt.p4.publish_order, value:dat});
+        }
+        return fields;
+    }
+    coCallCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType.CO | ReactType.CallWhite | ReactType.CallBlack){
         const uch = this.members[user.id].uchannel;
         if(uch == null) return this.err();
         let embed : Discord.MessageEmbed | null = null;
@@ -1709,44 +1746,37 @@ export default class GameState {
         if(embed == null) return;
         const time = ((Date.now() - this.daytimeStartTime)/1000).toFixed(2);
         embed.description = format(this.langTxt.p4.call_time, {sec : time});
+        embed.fields = this.makeCoCallLogFields();
 
-        let callLogs : [string, number, string, string][] = []; // role, time, author, data
-        let coLogs   : [number, string][] = []; // time, data
-        for(const uid in this.members){
-            const ctime = this.members[uid].firstCallCoTime;
-            if(ctime == null) continue;
-            const role = this.members[uid].coRole;
-            if(role == null){
-                coLogs.push([ctime, this.langTxt.team_emo.Unknown + " " + this.members[uid].nickname]);
-            } else {
-                coLogs.push([ctime, this.langTxt.emo[role] + " " + this.members[uid].nickname]);
-            }
-            if(this.members[uid].callLog.length != 0){
-                const author = (role ? this.langTxt.emo[role] : this.langTxt.team_emo.Unknown) + this.members[uid].nickname;
-                let dat = "";
-                for(const p of this.members[uid].callLog){
-                    dat += this.langTxt.team_emo[p[1] ? "Black" : "White"] + " "+ this.members[p[0]].nickname + "\n";
-                }
-                const r0 = (role == null ? "" : role == Role.Seer ? "0" : role == Role.Priest ? "1" : role);
-                callLogs.push([r0, ctime, author, dat]);
-            }
-        }
-        callLogs.sort();
-        coLogs.sort();
-        let fields : Discord.EmbedField[] = [];
-        for(const p of callLogs){
-            fields.push({inline : true, name : p[2], value:p[3]});
-        }
-        if(coLogs.length > 0) {
-            let dat = "";
-            for(const p of coLogs){
-                dat += p[1] + "\n";
-            }
-            fields.push({inline : true, name : this.langTxt.p4.publish_order, value:dat});
-        }
-        embed.fields = fields;
         this.channels.Living.send(embed);
         this.channels.GameLog.send(embed);
+        this.httpGameState.updateMembers();
+    }
+    coColorCallCancellCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType.CallWhite | ReactType.CallBlack){
+        const uch = this.members[user.id].uchannel;
+        if(uch == null) return this.err();
+        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+        if(tid == null) return;
+        const tname = this.members[tid].nickname;
+        const time = ((Date.now() - this.daytimeStartTime)/1000).toFixed;
+
+        this.members[user.id].callLog.splice(this.members[user.id].callLog.findIndex(p => p[0] == tid), 1);
+        
+        const embed = new Discord.MessageEmbed({
+            author      : {name: this.members[user.id].nickname, iconURL: this.members[user.id].avatar},
+            title       : format(type == ReactType.CallWhite ? this.langTxt.p4.call_white_cancel_title : this.langTxt.p4.call_black_cancel_title, {name : this.members[user.id].nickname, trgt:tname}),
+            thumbnail   : {url: this.members[tid].avatar},
+            color       : type == ReactType.CallWhite ? this.langTxt.team_color.Good : this.langTxt.team_color.Evil,
+            description : format(this.langTxt.p4.call_time, {sec : time}),
+            fields      : this.makeCoCallLogFields()
+        });
+        
+        this.streams.playSe(this.srvSetting.se.call);
+
+        this.channels.Living.send(embed);
+
+        this.channels.GameLog.send(embed);
+
         this.httpGameState.updateMembers();
     }
     cutTimeCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean){
@@ -2465,6 +2495,12 @@ export default class GameState {
                 if(this.phase == Phase.p2_Preparation) {
                     if(reaction.message.channel.id != uch.id) return;
                     this.wishRoleCheck(reaction, user, false, i == ReactType.WishRole);
+                }
+            }
+            if(i == ReactType.CallWhite || i == ReactType.CallBlack){
+                if(this.phase == Phase.p4_Daytime) {
+                    if(reaction.message.channel.id != uch.id) return;
+                    this.coColorCallCancellCheck(reaction, user, i);
                 }
             }
         }
