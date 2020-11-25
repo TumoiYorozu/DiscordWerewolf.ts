@@ -350,8 +350,6 @@ export default class GameState {
         this.channels.Living.send(this.langTxt.p7.breakup);
         this.streams.destroy();
         this.httpServer.destroySession(this.httpGameState.sid);
-        delete this.streams;
-        delete this.upperGames[this.parentID];
     }
 
     resetServerSession(){
@@ -467,7 +465,7 @@ export default class GameState {
         }
 
 
-        let fields : {[key: string]:  any}[] = [];
+        let fields : Discord.EmbedField[] = [];
 
         if(team[TeamNames.Good] != "") { fields.push({
             name : this.langTxt.team_name.Good + "  " +
@@ -2721,7 +2719,7 @@ export default class GameState {
     }
 }
 
-function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : number[], func : (gid : number, obj : GameState)=> any, callFromTimer : boolean = false){
+function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : number[], func : (gid : number, obj : GameState)=> unknown, callFromTimer : boolean = false){
     //! no use "this."
     // console.log(obj.remTime);
     if(gid != obj.gameId) return;

@@ -129,12 +129,7 @@ export class HttpGameState {
     destroy(){
         for(const idx in this.subscribers){
             this.subscribers[idx].ws.close();
-            delete this.subscribers[idx];
         }
-        delete this.subscribers;
-        delete this.uid2bid;
-        delete this.bid2uid;
-        delete this.userState;
     }
     addSubscribers(ws : WebSocket, id : string | null){
         this.subscribers.push(new Session(ws, id));
