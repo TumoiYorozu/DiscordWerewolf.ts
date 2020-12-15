@@ -129,19 +129,13 @@ export class HttpGameState {
     destroy(){
         for(const idx in this.subscribers){
             this.subscribers[idx].ws.close();
-            delete this.subscribers[idx];
         }
-        delete this.subscribers;
-        delete this.uid2bid;
-        delete this.bid2uid;
-        delete this.userState;
     }
     addSubscribers(ws : WebSocket, id : string | null){
         this.subscribers.push(new Session(ws, id));
         this.updateMembers();
     }
     wsSend(message : string){
-        if(this.subscribers === undefined) return;
         // console.log("wsSend", message);
         this.subscribers.forEach((session, i) => {
             if (session.ws.readyState === session.ws.OPEN) { // check if it is still connected

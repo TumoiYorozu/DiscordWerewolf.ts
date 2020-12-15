@@ -271,6 +271,7 @@ export default class GameState {
     wolfLog         : string[];
     dictatorVoteMode: string = "";
     httpGameState   : HttpGameState;
+    timerList       : NodeJS.Timer[];
 
     constructor(clients : Discord.Client[], upperGames : {[key: string]: GameState}, guild : Discord.Guild, guild2 : Discord.Guild, ch : GameChannels, ch2 : GameChannels, parentID : string, httpServer : HttpServer, srvLangTxt : LangType, srvRuleSetting : RuleType, srvSetting : ServerSettingsType) {
         this.clients     = clients;
@@ -301,6 +302,8 @@ export default class GameState {
         this.httpServer    = httpServer;
         this.gameSessionID = this.resetServerSession();
         this.httpGameState = this.httpServer.games[this.gameSessionID];
+        this.timerList   = [];
+
         this.reset()
         this.setRoles(this.ruleSetting)
         this.streams     = new LiveStream(ch, ch2, this.httpGameState, srvLangTxt, srvRuleSetting);
@@ -315,6 +318,10 @@ export default class GameState {
         this.roleText = srvLangTxt.role as {[key: string]: string};
     }
     reset(){
+        for(let timer of this.timerList){
+            clearTimeout(timer);
+        }
+        this.timerList = [];
         this.phase = Phase.p0_UnStarted
         for(const uid in this.members){
             this.members[uid].reset();
@@ -343,8 +350,6 @@ export default class GameState {
         this.channels.Living.send(this.langTxt.p7.breakup);
         this.streams.destroy();
         this.httpServer.destroySession(this.httpGameState.sid);
-        delete this.streams;
-        delete this.upperGames[this.parentID];
     }
 
     resetServerSession(){
@@ -460,7 +465,7 @@ export default class GameState {
         }
 
 
-        let fields : {[key: string]:  any}[] = [];
+        let fields : Discord.EmbedField[] = [];
 
         if(team[TeamNames.Good] != "") { fields.push({
             name : this.langTxt.team_name.Good + "  " +
@@ -1051,6 +1056,23 @@ export default class GameState {
         }
         await this.gamePreparation(message);
     }
+    resetGame(){
+        this.reset();
+        this.start_1Wanted();
+        this.sendMemberList(this.channels.Living);
+
+        const now_num = Object.keys(this.members).length;
+        let send_text = format(this.langTxt.p1.current_count, {num : now_num, all : this.reqMemberNum});
+        if(now_num == this.reqMemberNum){
+            send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
+        }
+        this.channels.Living.send(send_text);
+
+        for(const mid in this.members){
+            this.members[mid].isLiving = true;
+        }
+        this.httpGameState.updateMembers();
+    }
     ////////////////////////////////////////////
     // Phase.p2_Preparation
     ////////////////////////////////////////////
@@ -1278,7 +1300,7 @@ export default class GameState {
                 });
             }
         });
-        if(WerewolfRoomField.value !== ""){ // for Werewolf
+        { // for Werewolf
             const role_str = Role.Werewolf;
             const team = getDefaultTeams(role_str);
             const embed = new Discord.MessageEmbed({
@@ -1295,7 +1317,7 @@ export default class GameState {
                 title       : format(this.langTxt.p2.done_preparations, {sec : this.ruleSetting.confirmation_sec}),
                 color       : this.langTxt.sys.system_color,
             }});
-            setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this);
+            this.timerList.push(setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this));
         } else {
             this.startFirstNight();
         }
@@ -1427,7 +1449,6 @@ export default class GameState {
     // Phase.p3_FirstNight
     ////////////////////////////////////////////
     startFirstNight(){
-        this.streams.setBGM(this.srvSetting.music.night);
         this.phase = Phase.p3_FirstNight;
         this.remTime = this.ruleSetting.first_night.first_night_time;
         this.updateRoomsRW();
@@ -1660,7 +1681,44 @@ export default class GameState {
             })
         }
     }
-    coCallCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType){
+    makeCoCallLogFields(){
+        let callLogs : [string, number, string, string][] = []; // role, time, author, data
+        let coLogs   : [number, string][] = []; // time, data
+        for(const uid in this.members){
+            const ctime = this.members[uid].firstCallCoTime;
+            if(ctime == null) continue;
+            const role = this.members[uid].coRole;
+            if(role == null){
+                coLogs.push([ctime, this.langTxt.team_emo.Unknown + " " + this.members[uid].nickname]);
+            } else {
+                coLogs.push([ctime, this.langTxt.emo[role] + " " + this.members[uid].nickname]);
+            }
+            if(this.members[uid].callLog.length != 0){
+                const author = (role ? this.langTxt.emo[role] : this.langTxt.team_emo.Unknown) + this.members[uid].nickname;
+                let dat = "";
+                for(const p of this.members[uid].callLog){
+                    dat += this.langTxt.team_emo[p[1] ? "Black" : "White"] + " "+ this.members[p[0]].nickname + "\n";
+                }
+                const r0 = (role == null ? "" : role == Role.Seer ? "0" : role == Role.Priest ? "1" : role);
+                callLogs.push([r0, ctime, author, dat]);
+            }
+        }
+        callLogs.sort();
+        coLogs.sort();
+        let fields : Discord.EmbedField[] = [];
+        for(const p of callLogs){
+            fields.push({inline : true, name : p[2], value:p[3]});
+        }
+        if(coLogs.length > 0) {
+            let dat = "";
+            for(const p of coLogs){
+                dat += p[1] + "\n";
+            }
+            fields.push({inline : true, name : this.langTxt.p4.publish_order, value:dat});
+        }
+        return fields;
+    }
+    coCallCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType.CO | ReactType.CallWhite | ReactType.CallBlack){
         const uch = this.members[user.id].uchannel;
         if(uch == null) return this.err();
         let embed : Discord.MessageEmbed | null = null;
@@ -1710,61 +1768,36 @@ export default class GameState {
         if(embed == null) return;
         const time = ((Date.now() - this.daytimeStartTime)/1000).toFixed(2);
         embed.description = format(this.langTxt.p4.call_time, {sec : time});
+        embed.fields = this.makeCoCallLogFields();
 
-        let callLogs : [string, number, string, string][] = []; // role, time, author, data
-        let coLogs   : [number, string][] = []; // time, data
-        for(const uid in this.members){
-            const ctime = this.members[uid].firstCallCoTime;
-            if(ctime == null) continue;
-            const role = this.members[uid].coRole;
-            if(role == null){
-                coLogs.push([ctime, this.langTxt.team_emo.Unknown + " " + this.members[uid].nickname]);
-            } else {
-                coLogs.push([ctime, this.langTxt.emo[role] + " " + this.members[uid].nickname]);
-            }
-            if(this.members[uid].callLog.length != 0){
-                const author = (role ? this.langTxt.emo[role] : this.langTxt.team_emo.Unknown) + this.members[uid].nickname;
-                let dat = "";
-                for(const p of this.members[uid].callLog){
-                    dat += this.langTxt.team_emo[p[1] ? "Black" : "White"] + " "+ this.members[p[0]].nickname + "\n";
-                }
-                const r0 = (role == null ? "" : role == Role.Seer ? "0" : role == Role.Priest ? "1" : role);
-                callLogs.push([r0, ctime, author, dat]);
-            }
-        }
-        callLogs.sort();
-        coLogs.sort();
-        let fields : Discord.EmbedField[] = [];
-        for(const p of callLogs){
-            fields.push({inline : true, name : p[2], value:p[3]});
-        }
-        if(coLogs.length > 0) {
-            let dat = "";
-            for(const p of coLogs){
-                dat += p[1] + "\n";
-            }
-            fields.push({inline : true, name : this.langTxt.p4.publish_order, value:dat});
-        }
-        embed.fields = fields;
         this.channels.Living.send(embed);
         this.channels.GameLog.send(embed);
         this.httpGameState.updateMembers();
     }
-    coCallCancelCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType){
+    coColorCallCancellCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType.CallWhite | ReactType.CallBlack){
         const uch = this.members[user.id].uchannel;
         if(uch == null) return this.err();
-        let embed : Discord.MessageEmbed | null = null;
+        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+        if(tid == null) return;
+        const tname = this.members[tid].nickname;
+        const time = ((Date.now() - this.daytimeStartTime)/1000).toFixed;
 
-        if(type == ReactType.CO) {
-            // COはキャンセルできない。
-            // 村スラ等は別の役職を押せばいいので問題ない。
-        } else {
-            // Callは間違えて押したときキャンセルしたい。
-            const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
-            if(tid == null) return;
-            const newLog = this.members[user.id].callLog.filter(p => p[0] != tid);
-            this.members[user.id].callLog = newLog;
-        }
+        this.members[user.id].callLog.splice(this.members[user.id].callLog.findIndex(p => p[0] == tid), 1);
+        
+        const embed = new Discord.MessageEmbed({
+            author      : {name: this.members[user.id].nickname, iconURL: this.members[user.id].avatar},
+            title       : format(type == ReactType.CallWhite ? this.langTxt.p4.call_white_cancel_title : this.langTxt.p4.call_black_cancel_title, {name : this.members[user.id].nickname, trgt:tname}),
+            thumbnail   : {url: this.members[tid].avatar},
+            color       : type == ReactType.CallWhite ? this.langTxt.team_color.Good : this.langTxt.team_color.Evil,
+            description : format(this.langTxt.p4.call_time, {sec : time}),
+            fields      : this.makeCoCallLogFields()
+        });
+        
+        this.streams.playSe(this.srvSetting.se.call);
+
+        this.channels.Living.send(embed);
+
+        this.channels.GameLog.send(embed);
 
         this.httpGameState.updateMembers();
     }
@@ -2388,23 +2421,6 @@ export default class GameState {
         gameTimer(this.gameId, this, Phase.p7_GameEnd, this.ruleSetting.after_game.alert_times, dummy_gameEndFinish);
     }
 
-    resetGame(){
-        this.reset();
-        this.start_1Wanted();
-        this.sendMemberList(this.channels.Living);
-
-        const now_num = Object.keys(this.members).length;
-        let send_text = format(this.langTxt.p1.current_count, {num : now_num, all : this.reqMemberNum});
-        if(now_num == this.reqMemberNum){
-            send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
-        }
-        this.channels.Living.send(send_text);
-
-        for(const mid in this.members){
-            this.members[mid].isLiving = true;
-        }
-        this.httpGameState.updateMembers();
-    }
     gameEndFinish(){
         this.destroy();
     }
@@ -2486,10 +2502,10 @@ export default class GameState {
                     this.wishRoleCheck(reaction, user, false, i == ReactType.WishRole);
                 }
             }
-            if(i == ReactType.CO || i == ReactType.CallWhite || i == ReactType.CallBlack){
+            if(i == ReactType.CallWhite || i == ReactType.CallBlack){
                 if(this.phase == Phase.p4_Daytime) {
                     if(reaction.message.channel.id != uch.id) return;
-                    this.coCallCancelCheck(reaction, user, i);
+                    this.coColorCallCancellCheck(reaction, user, i);
                 }
             }
         }
@@ -2572,9 +2588,8 @@ export default class GameState {
         const isDeveloper = (message.author.id in this.developer);
         const isGM        = isDeveloper || (message.author.id in this.GM);
 
-        if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
-            console.log("Exit game");
-            this.gameEndFinish();
+        if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
+            this.resetGame();
             return;
         }
 
@@ -2696,24 +2711,22 @@ export default class GameState {
         }
         ///////////////////////////////////////////////////////////////////
         if(this.phase == Phase.p7_GameEnd){
-            if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
-                console.log("Reset game");
-                this.resetGame();
+            if(isThisCommand(message.content, this.langTxt.p7.cmd_breakup) >= 0){
+                this.gameEndFinish();
                 return;
             }
         }
     }
 }
 
-function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : number[], func : (gid : number, obj : GameState)=> any, callFromTimer : boolean = false){
+function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : number[], func : (gid : number, obj : GameState)=> unknown, callFromTimer : boolean = false){
     //! no use "this."
     // console.log(obj.remTime);
-    if(obj == null) return;
     if(gid != obj.gameId) return;
     if(obj.phase != tPhase) return;
     obj.isTimerProgress = true;
     if(obj.stopTimerRequest){
-        setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true);
+        obj.timerList.push(setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true));
         return;
     }
     if(callFromTimer){
@@ -2753,7 +2766,7 @@ function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : 
         func(gid, obj);
     }else{
         obj.remTime -= 1;
-        setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true);
+        obj.timerList.push(setTimeout(gameTimer, 1000, gid, obj, tPhase, alert_times, func, true));
     }
 }
 

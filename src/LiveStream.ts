@@ -159,14 +159,14 @@ export default class LiveStream {
         if(this.bgmInput   ) this.bgmInput.destroy();
         if(this.bgmInput2  ) this.bgmInput2.destroy();
         if(this.bgmFile    ) this.bgmFile.destroy();
-        delete this.liveMixer  
-        delete this.audioMixer 
-        delete this.dummyInput1
-        delete this.conn1      
-        delete this.conn2      
-        delete this.bgmInput   
-        delete this.bgmInput2  
-        delete this.bgmFile
+        this.liveMixer = null  
+        this.audioMixer = null 
+        this.dummyInput1 = null
+        this.conn1 = null      
+        this.conn2 = null      
+        this.bgmInput = null   
+        this.bgmInput2 = null  
+        this.bgmFile = null
     }
     loopBGM(name : string, bid : number, obj : LiveStream){
         if(name == obj.bgmFileName){

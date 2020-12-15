@@ -220,7 +220,7 @@
         breakdown_changed : "役職の内訳設定が変更されました．"
     }, 
     p1 : {
-        cmd_join       : ["参加", "抜刀", "^join"],
+        cmd_join       : ["参加", "^join"],
         cmd_join_force : ["強制参加", "^join_force", "^joinf"],
         cmd_leave   : ["退出", "^leave"],
         cmd_kick    : ["退場", "^kick"],
@@ -294,6 +294,8 @@
         coming_out_open_title : "{name} さんが「{role}」だと正体を明かしました",
         call_white_open_title : "{name} さんが {trgt} さんを「白」だとコールしました",
         call_black_open_title : "{name} さんが {trgt} さんを「黒」だとコールしました",
+        call_white_cancel_title : "{name} さんが {trgt} さんの「白」コールをキャンセルしました",
+        call_black_cancel_title : "{name} さんが {trgt} さんの「黒」コールをキャンセルしました",
         call_time             : "昼が始まってから {sec} 秒",
         publish_order         : "宣言順",
 
