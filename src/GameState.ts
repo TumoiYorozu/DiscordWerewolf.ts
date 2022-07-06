@@ -557,7 +557,9 @@ export default class GameState {
         const cu2 = this.clients[1].user;
         for(const i in this.clients){
             const u = this.clients[i].user;
-            if(u != null) addPerm(u.id, Perm.Admin, permGMonly);
+            if(u != null) {
+                // addPerm(u.id, Perm.Admin, permGMonly);
+            }
         }
         this.channels.DebugLog.overwritePermissions(permGMonly);
         this.channels.GameLog.overwritePermissions ( [{id: this.guild.id, allow: ReadOnly_alw, deny:  ReadOnly_dny}]);
@@ -726,11 +728,11 @@ export default class GameState {
         for(const i in this.clients){
             const u = this.clients[i].user;
             if(u == null) continue;
-            addPerm(u.id, Perm.Admin, permLiving     );
-            addPerm(u.id, Perm.RW,    permLivingVoice);
-            addPerm(u.id, Perm.Admin, permDead       );
-            addPerm(u.id, Perm.RW,    permDeadVoice  );
-            addPerm(u.id, Perm.Admin, permWerewolf   );
+            // addPerm(u.id, Perm.Admin, permLiving     );
+            // addPerm(u.id, Perm.RW,    permLivingVoice);
+            // addPerm(u.id, Perm.Admin, permDead       );
+            // addPerm(u.id, Perm.RW,    permDeadVoice  );
+            // addPerm(u.id, Perm.Admin, permWerewolf   );
         }
         this.channels.Living     .overwritePermissions(permLiving     );
         this.channels.LivingVoice.overwritePermissions(permLivingVoice);
