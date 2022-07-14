@@ -3,10 +3,17 @@ import {GameChannels} from "./GameUtils"
 import {LangType, RuleType} from "./JsonType";
 import {HttpGameState} from "./HttpServer"
 import {Readable} from "stream";
+import * as Prism from "prism-media";
 import * as AudioMixer from "audio-mixer";
 import * as fs from "fs"
 import * as wav from "wav"
 
+import {
+    joinVoiceChannel, VoiceConnection,
+    createAudioPlayer, createAudioResource,
+    NoSubscriberBehavior, StreamType,
+    EndBehaviorType,
+} from "@discordjs/voice";
 
 class RealtimeWaveStream extends Readable{
     freq       : number = 375;
@@ -133,21 +140,25 @@ class RealtimeFsWavStream extends Readable{
 export default class LiveStream {
     channels  : GameChannels;
     channels2 : GameChannels;
+    guild        : Discord.Guild;
+    guild2       : Discord.Guild;
     liveMixer   : AudioMixer.Mixer | null = null;
     audioMixer  : AudioMixer.Mixer | null = null;
     dummyInput1  : AudioMixer.Input | null = null;
-    conn1        : Discord.VoiceConnection  | null = null;
-    conn2        : Discord.VoiceConnection  | null = null;
+    conn1        : VoiceConnection  | null = null;
+    conn2        : VoiceConnection  | null = null;
     bgmInput     : AudioMixer.Input | null = null;
     bgmInput2    : AudioMixer.Input | null = null;
     bgmFile      : RealtimeFsWavStream | null = null;
     bgmFileName  : string = "";
     bgmId        : number = 0;
     httpGameState   : HttpGameState;
-    constructor(ch : GameChannels, ch2 : GameChannels, httpGameState : HttpGameState, SrvLangTxt : LangType, SrvRoleSetting : RuleType) {
+    constructor(ch : GameChannels, ch2 : GameChannels, httpGameState : HttpGameState, SrvLangTxt : LangType, SrvRoleSetting : RuleType, guild : Discord.Guild, guild2 : Discord.Guild) {
         this.channels = ch
         this.channels2 = ch2
         this.httpGameState = httpGameState;
+        this.guild = guild;
+        this.guild2 = guild2;
     }
     reset(){}
     destroy(){
@@ -215,11 +226,12 @@ export default class LiveStream {
     playSe(name : string){
         if(this.liveMixer == null) return;
 
-        const fst = fs.createReadStream(name);
+        const seWavReader = new wav.Reader()
+        const fst = new RealtimeFsWavStream(name, seWavReader);
+        // const fst = fs.createReadStream(name);
         fst.on("error", (e) => {
             console.log(e);
         })
-        const seWavReader = new wav.Reader()
         fst.pipe(seWavReader);
         console.log("play SE", name);
         seWavReader.once('readable', ()=>{
@@ -251,27 +263,37 @@ export default class LiveStream {
         if(this.conn1 != null) return false;
         if(this.conn2 != null) return false;
 
-        const conn2 = await this.channels2.DeadVoice.join().catch((e)=>{
-            console.error(e);
-            console.trace();
-            console.error("Error Catch!");
+        const conn2 = joinVoiceChannel({
+            guildId: this.channels2.DeadVoice.guildId,
+            channelId: this.channels2.DeadVoice.id,
+            adapterCreator: this.guild2.voiceAdapterCreator,
+            selfMute: false,
         });
         if(conn2 == null) return false;
-        console.log("join2");
+        this.conn2 = conn2;
+
         const mixer =  new AudioMixer.Mixer({
             channels: 2,
             bitDepth: 16,
             sampleRate: 48000
         });
-        this.conn2 = conn2;
-        conn2.play(mixer, {type:'converted'});
+        const player2 = createAudioPlayer({behaviors: {noSubscriber: NoSubscriberBehavior.Play}});
+        conn2.subscribe(player2);
+        const resource2 = createAudioResource((mixer as unknown as Readable), {
+            inputType: StreamType.Raw
+        });
+        player2.play(resource2);
+
         this.audioMixer =  mixer;
-        
+
         /////////////////////////////////////////////////////////////////////////
-        const conn1 = await this.channels.LivingVoice.join().catch((e)=>{
-            console.error(e);
-            console.trace();
-            console.error("Error Catch!");
+        const conn1 = joinVoiceChannel({
+            guildId: this.channels.LivingVoice.guildId,
+            channelId: this.channels.LivingVoice.id,
+            adapterCreator: this.guild.voiceAdapterCreator,
+            group: "1",
+            selfDeaf : false,
+            selfMute: false,
         });
         if(conn1 == null) return false;
         this.conn1 = conn1;
@@ -281,6 +303,13 @@ export default class LiveStream {
         });
 
          
+        const player1 = createAudioPlayer({behaviors: {noSubscriber: NoSubscriberBehavior.Play}});
+        conn1.subscribe(player1);
+        const resource1 = createAudioResource((this.liveMixer as unknown as Readable), {
+            inputType: StreamType.Raw
+        });
+        player1.play(resource1);
+
         const dummyInput1 = new AudioMixer.Input({
             channels: 2, bitDepth: 16, sampleRate: 48000, volume : 100
         });
@@ -288,8 +317,7 @@ export default class LiveStream {
         this.liveMixer.addInput(dummyInput1);
         const dummyStream1 = new RealtimeWaveStream(0);
         dummyStream1.pipe(dummyInput1);
-        
-        conn1.play(this.liveMixer, {type:'converted'});
+
         
         this.bgmInput2 = new AudioMixer.Input({
             channels: 2, bitDepth: 16, sampleRate: 48000, volume    : 100
@@ -297,44 +325,61 @@ export default class LiveStream {
         mixer.addInput(this.bgmInput2);
         this.liveMixer.pipe(this.bgmInput2);
 
-        conn1.on('speaking', (user, speaking) => {
-                    if(user == null){
-                        console.log("user is null...", user, speaking);
-                        return;
+        conn1.receiver.speaking.on("start", (userId) => {
+            // console.log(  `${userId} start`  );
+            this.httpGameState.updateMemberSpeaking(userId);
+            if (this.audioMixer == null){
+                console.log("audioMixer is null");
+            } else {
+                const audioStream = conn1.receiver.subscribe(userId, {
+                    end: {
+                        behavior: EndBehaviorType.AfterSilence,
+                        duration: 100,
+                    },
+                });
+                const standaloneInput = new AudioMixer.Input({
+                    channels: 2,
+                    bitDepth: 16,
+                    sampleRate: 48000,
+                    volume    : 80
+                });
+                this.audioMixer.addInput(standaloneInput);
+
+                const opus_decoder = new Prism.opus.Decoder({ rate: 48000, channels: 2, frameSize: 960 });
+                const p = audioStream.pipe(opus_decoder).pipe(standaloneInput);
+                
+                audioStream.on("error", e => {
+                    console.error("audioStream Err", e);
+                })
+                opus_decoder.on("error", e => {
+                    console.error("opus_decoder Err", e);
+                })
+                standaloneInput.on("error", e => {
+                    console.error("standaloneInput Err", e);
+                })
+                p.on("error", e => {
+                    console.error("p Err", e);
+                })
+
+
+                audioStream.on('end', () => {
+                    if (this.audioMixer != null){
+                        this.audioMixer.removeInput(standaloneInput);
+                        this.httpGameState.updateMemberNospeaking(userId);
+                        // console.log(`I'm no longer listening to ${userId}`);
+                        opus_decoder.destroy();
+                        standaloneInput.destroy();
+                        audioStream.destroy();
+                        p.destroy()
                     }
-                    // console.log(`Speaking ${user.username}`, speaking);
-                    if (user.bot) return
-                    if (speaking) {
-                        // console.log(`I'm listening to ${user.username}`);
-                        this.httpGameState.updateMemberSpeaking(user.id);
-                        if (this.audioMixer == null){
-                            console.log("audioMixer is null");
-                        } else {
-                            const audioStream = conn1.receiver.createStream(user, {mode : "pcm"});
-                            
-                            const standaloneInput = new AudioMixer.Input({
-                                channels: 2,
-                                bitDepth: 16,
-                                sampleRate: 48000,
-                                volume    : 80
-                            });
-                            this.audioMixer.addInput(standaloneInput);
-                            const p = audioStream.pipe(standaloneInput);
-                            audioStream.on('end', () => {
-                                if (this.audioMixer != null){
-                                    this.audioMixer.removeInput(standaloneInput);
-                                    this.httpGameState.updateMemberNospeaking(user.id);
-                                    //console.log(`I'm no longer listening to ${user.username}`);
-                                    standaloneInput.destroy();
-                                    audioStream.destroy();
-                                    p.destroy()
-                                }
-                            });
-                        }
-                    }else{
-                        //console.log(`no speak ${user.username}`);
-                    }
-        })
+                });
+                // audioStream.on('end', () => {
+                //     console.log(`I'm no longer listening to ${userId}`);
+                //     audioStream.destroy();
+                // });
+            }
+        });
+
         return true;
     }
     unconnectVoice(){
@@ -352,15 +397,15 @@ export default class LiveStream {
             this.liveMixer = null;
         } 
         if(this.conn1 != null) {
-            this.conn1.on('closing', () => {
-                this.conn1 = null;
-            });
+            // this.conn1.on('closing', () => {
+            //     this.conn1 = null;
+            // });
             this.conn1.disconnect();
         }
         if(this.conn2 != null){
-            this.conn2.on('closing', () => {
-                this.conn2 = null;
-            });
+            // this.conn2.on('closing', () => {
+            //     this.conn2 = null;
+            // });
             this.conn2.disconnect();
         }
     }

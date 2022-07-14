@@ -63,6 +63,7 @@
     /* Advanced Options */
     "forceConsistentCasingInFileNames": true,  /* Disallow inconsistently-cased references to the same file. */
 
-    "resolveJsonModule" : true
+    "resolveJsonModule" : true,
+    "skipLibCheck": true,                     // discord.js@13.8.1 is broken...
   }
 }

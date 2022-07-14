@@ -31,7 +31,9 @@ const SysRuleSet = loadAndSetSysRuleSet("./rule_setting_templates/default.json5"
 if (SysLangTxt    == null) { throw new Error('SysLangTxt is Wrong! lang:' + ServerSetting.system_lang);}
 if (SysRuleSet    == null) { throw new Error('SysRuleSet is Wrong!');}
 
-const clients = [new Discord.Client(), new Discord.Client()];
+const clients = [
+    new Discord.Client({ intents: ['GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_VOICE_STATES', 'GUILDS'] }), 
+    new Discord.Client({ intents: ['GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_VOICE_STATES', 'GUILDS'] })];
 
 const Games: { [key: string]: GameState; } = {};
 
@@ -154,9 +156,9 @@ function has_room_all_game_channel_support_t(
     find_name : string, 
     channels : Discord.GuildChannelManager) : Discord.TextChannel | null{
     var ret : Discord.TextChannel | null  = null;
-    const targetChannel = channels.cache.find(c => (c.parentID == catId && c.name == find_name));
+    const targetChannel = channels.cache.find(c => (c.parentId == catId && c.name == find_name));
     if(targetChannel == null) return null;
-    if (!((targetChannel): targetChannel is Discord.TextChannel => targetChannel.type === 'text')(targetChannel)) return null;
+    if (!((targetChannel): targetChannel is Discord.TextChannel => targetChannel.type === 'GUILD_TEXT')(targetChannel)) return null;
     return targetChannel;
 }
 function has_room_all_game_channel_support_v(
@@ -164,9 +166,9 @@ function has_room_all_game_channel_support_v(
     find_name : string, 
     channels : Discord.GuildChannelManager) : Discord.VoiceChannel | null{
     var ret : Discord.VoiceChannel | null  = null;
-    const targetChannel = channels.cache.find(c => (c.parentID == catId && c.name == find_name));
+    const targetChannel = channels.cache.find(c => (c.parentId == catId && c.name == find_name));
     if(targetChannel == null) return null;
-    if (!((targetChannel): targetChannel is Discord.VoiceChannel => targetChannel.type === 'voice')(targetChannel)) return null;
+    if (!((targetChannel): targetChannel is Discord.VoiceChannel => targetChannel.type === 'GUILD_VOICE')(targetChannel)) return null;
     return targetChannel;
 }
 
@@ -198,13 +200,13 @@ function getGameChannels2(ch : GameChannels, gch : Discord.GuildChannelManager) 
     let aDead        : Discord.TextChannel  | null = null;
     let aDeadVoice   : Discord.VoiceChannel | null = null;
     gch.cache.forEach(function (c, key) {
-        if(ch.Werewolf   .id == c.id && ((c): c is Discord.TextChannel => c.type === 'text')(c)) aWerewolf    = c;
-        if(ch.GameLog    .id == c.id && ((c): c is Discord.TextChannel => c.type === 'text')(c)) aGameLog     = c;
-        if(ch.DebugLog   .id == c.id && ((c): c is Discord.TextChannel => c.type === 'text')(c)) aDebugLog    = c;
-        if(ch.Living     .id == c.id && ((c): c is Discord.TextChannel => c.type === 'text')(c)) aLiving      = c;
-        if(ch.LivingVoice.id == c.id && ((c): c is Discord.VoiceChannel=> c.type === 'voice')(c))aLivingVoice = c;
-        if(ch.Dead       .id == c.id && ((c): c is Discord.TextChannel => c.type === 'text')(c)) aDead        = c;
-        if(ch.DeadVoice  .id == c.id && ((c): c is Discord.VoiceChannel=> c.type === 'voice')(c))aDeadVoice   = c;
+        if(ch.Werewolf   .id == c.id && ((c): c is Discord.TextChannel => c.type === 'GUILD_TEXT')(c)) aWerewolf    = c;
+        if(ch.GameLog    .id == c.id && ((c): c is Discord.TextChannel => c.type === 'GUILD_TEXT')(c)) aGameLog     = c;
+        if(ch.DebugLog   .id == c.id && ((c): c is Discord.TextChannel => c.type === 'GUILD_TEXT')(c)) aDebugLog    = c;
+        if(ch.Living     .id == c.id && ((c): c is Discord.TextChannel => c.type === 'GUILD_TEXT')(c)) aLiving      = c;
+        if(ch.LivingVoice.id == c.id && ((c): c is Discord.VoiceChannel=> c.type === 'GUILD_VOICE')(c))aLivingVoice = c;
+        if(ch.Dead       .id == c.id && ((c): c is Discord.TextChannel => c.type === 'GUILD_TEXT')(c)) aDead        = c;
+        if(ch.DeadVoice  .id == c.id && ((c): c is Discord.VoiceChannel=> c.type === 'GUILD_VOICE')(c))aDeadVoice   = c;
     });
     if(aWerewolf   == null) return null;
     if(aGameLog    == null) return null;
@@ -240,14 +242,14 @@ async function make_room(message : Discord.Message, SrvLangTxt : LangType){
     let Dead        : Discord.TextChannel  | null = null;
     let DeadVoice   : Discord.VoiceChannel | null = null;
 
-    const cat = await guild.channels.create(category_name,{type : 'category'});
-    Werewolf    = await guild.channels.create(SrvLangTxt.game.room_Werewolf   , {type : 'text',  parent : cat.id, position : 2});
-    GameLog     = await guild.channels.create(SrvLangTxt.game.room_GameLog    , {type : 'text',  parent : cat.id, position : 3});
-    DebugLog    = await guild.channels.create(SrvLangTxt.game.room_DebugLog   , {type : 'text',  parent : cat.id, position : 4});
-    Living      = await guild.channels.create(SrvLangTxt.game.room_Living     , {type : 'text',  parent : cat.id, position : 5});
-    LivingVoice = await guild.channels.create(SrvLangTxt.game.room_LivingVoice, {type : 'voice', parent : cat.id, position : 6});
-    Dead        = await guild.channels.create(SrvLangTxt.game.room_Dead       , {type : 'text',  parent : cat.id, position : 7});
-    DeadVoice   = await guild.channels.create(SrvLangTxt.game.room_DeadVoice  , {type : 'voice', parent : cat.id, position : 8});
+    const cat = await guild.channels.create(category_name,{type : 'GUILD_CATEGORY'});
+    Werewolf    = await guild.channels.create(SrvLangTxt.game.room_Werewolf   , {type : 'GUILD_TEXT',  parent : cat.id, position : 2});
+    GameLog     = await guild.channels.create(SrvLangTxt.game.room_GameLog    , {type : 'GUILD_TEXT',  parent : cat.id, position : 3});
+    DebugLog    = await guild.channels.create(SrvLangTxt.game.room_DebugLog   , {type : 'GUILD_TEXT',  parent : cat.id, position : 4});
+    Living      = await guild.channels.create(SrvLangTxt.game.room_Living     , {type : 'GUILD_TEXT',  parent : cat.id, position : 5});
+    LivingVoice = await guild.channels.create(SrvLangTxt.game.room_LivingVoice, {type : 'GUILD_VOICE', parent : cat.id, position : 6});
+    Dead        = await guild.channels.create(SrvLangTxt.game.room_Dead       , {type : 'GUILD_TEXT',  parent : cat.id, position : 7});
+    DeadVoice   = await guild.channels.create(SrvLangTxt.game.room_DeadVoice  , {type : 'GUILD_VOICE', parent : cat.id, position : 8});
     return new GameChannels(
         Werewolf   ,
         GameLog    ,
@@ -279,10 +281,10 @@ async function on_message(bid : number, message : Discord.Message){
     
     const message_channel = message.channel;
 
-    if(SysLangTxt != null && SysRuleSet != null && ('parentID' in message_channel)){
+    if(SysLangTxt != null && SysRuleSet != null && ('parentId' in message_channel)){
         const SrvLangTxt : LangType = SysLangTxt;
         const SrvRuleSet : RuleType = SysRuleSet;
-        const paID = message_channel.parentID;
+        const paID = message_channel.parentId;
 
         if(paID != null){
             if(Object.keys(Games).find((v : string ) => v == paID) != null){
@@ -303,6 +305,8 @@ async function on_message(bid : number, message : Discord.Message){
                             Games[paID].start_1Wanted();
                             await Games[paID].command(message);
                             if(ServerSetting.auto_voice_link){
+                                const sleep = (msec : number) => new Promise(resolve => setTimeout(resolve, msec));
+                                await sleep(300);
                                 Games[paID].voiceChannelsLink();
                             }
                         }
@@ -323,7 +327,7 @@ async function on_message(bid : number, message : Discord.Message){
             let guild2 = clients[1].guilds.cache.find(g => g.id == guild1.id);
             if(guild2 != null) guild2 = await guild2.fetch();
             if(ch == null || guild2 == null) return;
-            const pa = ch.Living.parentID;
+            const pa = ch.Living.parentId;
             const ch2 = getGameChannels2(ch, guild2.channels);
             if(pa == null || ch2 == null) return;
             Games[pa] = new GameState(clients, Games, guild1, guild2, ch, ch2, pa, httpServer, SrvLangTxt, SrvRuleSet, ServerSetting);
@@ -339,16 +343,18 @@ async function on_message(bid : number, message : Discord.Message){
 }
 
 
-clients[0].on("message", async message => await on_message(0, message));
-clients[1].on("message", async message => await on_message(1, message));
+clients[0].on("messageCreate", async message => await on_message(0, message));
+clients[1].on("messageCreate", async message => await on_message(1, message));
 
 clients[0].on('messageReactionAdd', (reaction, user) => {
+
     if (clients[0].user == null || user.id == clients[0].user.id) return;
     if (clients[1].user == null || user.id == clients[1].user.id) return;
-    if(reaction.message.channel.type === 'text'){
-        if(reaction.message.channel.parentID != null){
-            const pid = reaction.message.channel.parentID;
+    if(reaction.message.channel.type === 'GUILD_TEXT'){
+        if(reaction.message.channel.parentId != null){
+            const pid = reaction.message.channel.parentId;
             if(Object.keys(Games).find((v : string ) => v == pid) != null){
+                reaction;
                 Games[pid].reactCommand(reaction, user as Discord.User);
             }
         }
@@ -357,9 +363,9 @@ clients[0].on('messageReactionAdd', (reaction, user) => {
 clients[0].on('messageReactionRemove', (reaction, user) => {
     if (clients[0].user == null || user.id == clients[0].user.id) return;
     if (clients[1].user == null || user.id == clients[1].user.id) return;
-    if(reaction.message.channel.type === 'text'){
-        if(reaction.message.channel.parentID != null){
-            const pid = reaction.message.channel.parentID;
+    if(reaction.message.channel.type === 'GUILD_TEXT'){
+        if(reaction.message.channel.parentId != null){
+            const pid = reaction.message.channel.parentId;
             if(Object.keys(Games).find((v : string ) => v == pid) != null){
                 Games[pid].reactCommandRemove(reaction, user as Discord.User);
             }

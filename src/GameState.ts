@@ -94,7 +94,7 @@ function getUserMentionStr(user: Discord.User){
 function btoa(bin : string) {
     return Buffer.from(bin, 'binary').toString('base64');
   }
-function bnToB64(bn : BigInt) {
+function bnToB64(bn : bigint) {
     var hex = BigInt(bn).toString(16);
     if (hex.length % 2) { hex = '0' + hex; }
     var bin = [];
@@ -168,29 +168,33 @@ class GameMember {
 }
 
 const Admin_alw :Discord.Permissions= new Discord.Permissions([
-    'VIEW_CHANNEL', 'VIEW_AUDIT_LOG', 'READ_MESSAGE_HISTORY', 'CONNECT',
-    'ADD_REACTIONS', 'SEND_MESSAGES', 'SEND_TTS_MESSAGES', 'MANAGE_CHANNELS', 'ATTACH_FILES', 'USE_EXTERNAL_EMOJIS', 'SPEAK',
-    'MANAGE_MESSAGES', 'KICK_MEMBERS', 'MANAGE_GUILD', 'STREAM', 'EMBED_LINKS', 'VIEW_GUILD_INSIGHTS', 'MUTE_MEMBERS', 'DEAFEN_MEMBERS', 'MOVE_MEMBERS', 'USE_VAD', 'CHANGE_NICKNAME', 'MANAGE_NICKNAMES']);
+    'VIEW_CHANNEL', 'CONNECT',
+    'ADD_REACTIONS', 'SEND_MESSAGES', 'MANAGE_CHANNELS', 'SPEAK',
+    'EMBED_LINKS', 'MUTE_MEMBERS', 'DEAFEN_MEMBERS', 'MOVE_MEMBERS']);
 const Admin_dny :Discord.Permissions= new Discord.Permissions();
 
 const RW_alw : Discord.Permissions= new Discord.Permissions([
-    'MANAGE_CHANNELS', 'VIEW_CHANNEL', 'VIEW_AUDIT_LOG', 'READ_MESSAGE_HISTORY', 'CONNECT',
-    'ADD_REACTIONS', 'SEND_MESSAGES', 'SEND_TTS_MESSAGES', 'ATTACH_FILES', 'USE_EXTERNAL_EMOJIS', 'SPEAK']);
-const RW_dny : Discord.Permissions= new Discord.Permissions(['MANAGE_MESSAGES']);
+    'VIEW_CHANNEL', 'CONNECT',
+    'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
+const RW_dny : Discord.Permissions= new Discord.Permissions([]);
     
 const ReadOnly_alw : Discord.Permissions= new Discord.Permissions(
-    ['VIEW_CHANNEL', 'VIEW_AUDIT_LOG', 'READ_MESSAGE_HISTORY', 'CONNECT',]);
+    ['VIEW_CHANNEL', 'CONNECT']);
 const ReadOnly_dny : Discord.Permissions= new Discord.Permissions(
-    ['ADD_REACTIONS', 'SEND_MESSAGES', 'SEND_TTS_MESSAGES', 'MANAGE_CHANNELS', 'ATTACH_FILES', 'USE_EXTERNAL_EMOJIS', 'SPEAK', 'MANAGE_MESSAGES']);
+    ['ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
 
 const ViewOnly_alw : Discord.Permissions= new Discord.Permissions(
     ['VIEW_CHANNEL', ]);
 const ViewOnly_dny : Discord.Permissions= new Discord.Permissions(
-    ['VIEW_AUDIT_LOG', 'CONNECT', 'ADD_REACTIONS', 'SEND_MESSAGES', 'SEND_TTS_MESSAGES', 'MANAGE_CHANNELS', 'ATTACH_FILES', 'USE_EXTERNAL_EMOJIS', 'SPEAK', 'MANAGE_MESSAGES']);
+    ['CONNECT', 'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
     
 const NoAccess_alw : Discord.Permissions= new Discord.Permissions([]);
 const NoAccess_dny : Discord.Permissions= new Discord.Permissions(
-    ['VIEW_CHANNEL', 'VIEW_AUDIT_LOG', 'CONNECT','ADD_REACTIONS', 'SEND_MESSAGES', 'SEND_TTS_MESSAGES', 'MANAGE_CHANNELS', 'ATTACH_FILES', 'USE_EXTERNAL_EMOJIS', 'SPEAK', 'MANAGE_MESSAGES']);
+    ['VIEW_CHANNEL', 'CONNECT',
+    'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
+
+
+
 
 const enum Perm {NoAccess, ReadOnly, ViewOnly, RW, Admin}
 function addPerm(id : string, p : Perm, perms : Discord.OverwriteResolvable[]){
@@ -306,7 +310,7 @@ export default class GameState {
 
         this.reset()
         this.setRoles(this.ruleSetting)
-        this.streams     = new LiveStream(ch, ch2, this.httpGameState, srvLangTxt, srvRuleSetting);
+        this.streams     = new LiveStream(ch, ch2, this.httpGameState, srvLangTxt, srvRuleSetting, guild, guild2);
         this.phase       = Phase.p0_UnStarted;
         for(const idx in srvSetting.system_GM){
             this.GM[srvSetting.system_GM[idx]] = null;
@@ -361,11 +365,11 @@ export default class GameState {
         console.log("Session ID : ", sid);
         const httpURL = this.httpServer.registerSession(sid, this);
         console.log("HTTP URL : ", httpURL);
-        this.channels.Living.send({embed: {
+        this.channels.Living.send({embeds: [{
             title: this.langTxt.sys.sys_start_browser,
             description : httpURL,
             color: this.langTxt.sys.system_color,
-        }});
+        }]});
 
         return sid;
     }
@@ -382,11 +386,11 @@ export default class GameState {
         Object.keys(this.members).forEach((key, idx) => {
             text += this.members[key].nickname + "\n";
         });
-        ch.send({embed: {
+        ch.send({embeds: [{
             title: format(this.langTxt.sys.Current_join_member_num, {num : now_num}),
             description : text,
             color: this.langTxt.sys.system_color,
-        }});
+        }]});
     }
 
     getCategory64(){
@@ -486,12 +490,12 @@ export default class GameState {
             name : this.langTxt.rule.title,
             value: rules_txt, inline : false});
 
-        tch.send({embed: {
+        tch.send({embeds: [{
             title: this.langTxt.sys.Current_role_breakdown,
             description : format(this.langTxt.sys.Current_role_breakdown_sum, {num : all_cnt}),
             color: this.langTxt.sys.system_color,
             fields : fields,
-        }});
+        }]});
     }
     changeRule(rulesStr : string) {
         const delimiters = [':', '='];
@@ -535,34 +539,34 @@ export default class GameState {
         this.httpGameState.updatePhase(this.langTxt.p1.phase_name);
     }
     sendWarn(ch : Discord.TextChannel, title : string, desc : string){
-        ch.send({embed: {
+        ch.send({embeds: [{
             title: title,
             description : desc,
             color: this.langTxt.sys.system_warn_color,
-            author: {name: "Warn!", icon_url: "https://twemoji.maxcdn.com/2/72x72/26a0.png"},
-        }});
+            author: {name: "Warn!", iconURL: "https://twemoji.maxcdn.com/2/72x72/26a0.png"},
+        }]});
     }
     sendErr(ch : Discord.TextChannel, title : string, desc : string){
-        ch.send({embed: {
+        ch.send({embeds: [{
             title: title,
             description : desc,
             color: this.langTxt.sys.system_err_color,
-            author: {name: "Error!", icon_url: "https://twemoji.maxcdn.com/2/72x72/1f6ab.png"},
-        }});
+            author: {name: "Error!", iconURL: "https://twemoji.maxcdn.com/2/72x72/1f6ab.png"},
+        }]});
     }
     updateRoomsRW(){
         if(this.guild == null) return this.err();
         let permGMonly      : Discord.OverwriteResolvable[] = [{id: this.guild.id, allow: NoAccess_alw, deny:  NoAccess_dny}];
+        let permReadOnly    : Discord.OverwriteResolvable[] = [{id: this.guild.id, allow: NoAccess_alw, deny:  NoAccess_dny}];
         const cu1 = this.clients[0].user;
         const cu2 = this.clients[1].user;
-        for(const i in this.clients){
-            const u = this.clients[i].user;
-            if(u != null) {
-                // addPerm(u.id, Perm.Admin, permGMonly);
-            }
+        if (this.guild.me != null) {
+            addPerm(this.guild.me.id, Perm.Admin, permGMonly);
+            addPerm(this.guild.me.id, Perm.Admin, permReadOnly);
         }
-        this.channels.DebugLog.overwritePermissions(permGMonly);
-        this.channels.GameLog.overwritePermissions ( [{id: this.guild.id, allow: ReadOnly_alw, deny:  ReadOnly_dny}]);
+
+        this.channels.DebugLog.permissionOverwrites.set(permGMonly);
+        this.channels.GameLog.permissionOverwrites.set(permGMonly); // or permReadOnly
 
         let permLiving      : Discord.OverwriteResolvable[] = [];
         let permLivingVoice : Discord.OverwriteResolvable[] = [];
@@ -577,7 +581,7 @@ export default class GameState {
                 addPerm(this.guild.id, Perm.RW      , permLiving     );
                 addPerm(this.guild.id, Perm.RW      , permLivingVoice);
                 addPerm(this.guild.id, Perm.ReadOnly, permDead       );
-                addPerm(this.guild.id, Perm.ViewOnly, permDeadVoice  );
+                addPerm(this.guild.id, Perm.RW,       permDeadVoice  );
                 addPerm(this.guild.id, Perm.ViewOnly, permWerewolf   );
                 break;
             case Phase.p2_Preparation:
@@ -725,21 +729,19 @@ export default class GameState {
             default:
                 assertUnreachable(this.phase);
         }
-        for(const i in this.clients){
-            const u = this.clients[i].user;
-            if(u == null) continue;
-            // addPerm(u.id, Perm.Admin, permLiving     );
-            // addPerm(u.id, Perm.RW,    permLivingVoice);
-            // addPerm(u.id, Perm.Admin, permDead       );
-            // addPerm(u.id, Perm.RW,    permDeadVoice  );
-            // addPerm(u.id, Perm.Admin, permWerewolf   );
+        if (this.guild.me != null) {
+            addPerm(this.guild.me.id, Perm.Admin, permLiving     );
+            addPerm(this.guild.me.id, Perm.Admin, permLivingVoice);
+            addPerm(this.guild.me.id, Perm.Admin, permDead       );
+            addPerm(this.guild.me.id, Perm.Admin, permDeadVoice  );
+            addPerm(this.guild.me.id, Perm.Admin, permWerewolf   );
         }
-        this.channels.Living     .overwritePermissions(permLiving     );
-        this.channels.LivingVoice.overwritePermissions(permLivingVoice);
-        this.channels.Dead       .overwritePermissions(permDead       );
-        this.channels.DeadVoice  .overwritePermissions(permDeadVoice  );
-        this.channels.Werewolf   .overwritePermissions(permWerewolf   );
-        
+        this.channels.Living     .permissionOverwrites.set(permLiving     );
+        this.channels.LivingVoice.permissionOverwrites.set(permLivingVoice);
+        this.channels.Dead       .permissionOverwrites.set(permDead       );
+        this.channels.DeadVoice  .permissionOverwrites.set(permDeadVoice  );
+        this.channels.Werewolf   .permissionOverwrites.set(permWerewolf   );
+
         const LiveID = this.channels.LivingVoice.id;
         const DeadID = this.channels.DeadVoice.id;
         for(const uid in this.members) {
@@ -817,7 +819,7 @@ export default class GameState {
                 } else if(allowD == ReadOnly_alw){
                     m.voice.setMute(false);
                 } else {
-                    m.voice.kick();
+                    m.voice.disconnect();
                 }
             })
         })
@@ -852,23 +854,23 @@ export default class GameState {
             const aname = format(LangFP.result_title, {user:this.members[tid].nickname});
 
             if(team == TeamNames.Evil){
-                uch.send({embed: {
+                uch.send({embeds: [{
                     author      : {name : aname, iconURL: icon},
                     color       : this.langTxt.team_color[team],
                     thumbnail   : {url: this.members[tid].user.displayAvatarURL()},
                     title       : format(LangFP.is_wolf, {user : this.members[tid].nickname, emo : this.langTxt.emo.Werewolf}),
                     fields      : [{name : LangFP.same_team_role, value : sameTeamRole, inline : true},
                                    {name : LangFP.log,    value : actionLog, inline : true}]
-                }});
+                }]});
             } else {
-                uch.send({embed: {
+                uch.send({embeds: [{
                     author      : {name : aname, iconURL: icon},
                     color       : this.langTxt.team_color[team],
                     thumbnail   : {url: this.members[tid].user.displayAvatarURL()},
                     title       : format(LangFP.no_wolf, {user : this.members[tid].nickname, emo : this.langTxt.emo.Villager}),
                     fields      : [{name : LangFP.same_team_role, value : sameTeamRole, inline : true},
                         {name : LangFP.log,    value : actionLog, inline : true}]
-                }});
+                }]});
             }
         }
     }
@@ -890,10 +892,10 @@ export default class GameState {
         const uch = this.members[uid].uchannel;
         if(uch == null) return this.err();
         uch.send(getUserMentionStrFromId(uid) + this.langTxt.sys.dead);
-        this.channels.Dead.send({embed: {
+        this.channels.Dead.send({embeds: [{
             title: format(this.langTxt.sys.welcome_dead, {user : this.members[uid].nickname}),
             color: this.langTxt.sys.system_color,
-        }});
+        }]});
 
         let goodNum = 0;
         let evilNum = 0;
@@ -935,7 +937,11 @@ export default class GameState {
             if(!this.members[uid].isLiving) continue;
             const uch = this.members[uid].uchannel;
             if(uch == null) continue;
-            uch.send(mess);
+            if (typeof mess === "string") {
+                uch.send(mess);
+            } else {
+                uch.send({embeds: [mess]});
+            }
         }
     }
     async voiceChannelsLink(){
@@ -956,10 +962,10 @@ export default class GameState {
     stopTimer(ch : Discord.TextChannel){
         if(this.isTimerProgress){
             this.stopTimerRequest = true;
-            this.channels.Living.send({embed: {
+            this.channels.Living.send({embeds: [{
                 title: format(this.langTxt.sys.stop_timer, {time : this.getTimeFormatFromSec(this.remTime), cmd : this.langTxt.sys.cmd_resume_timer[0]}),
                 color: this.langTxt.sys.system_color,
-            }});
+            }]});
         } else {
             ch.send(this.langTxt.sys.no_timer);
         }
@@ -967,10 +973,10 @@ export default class GameState {
     resumeTimer(ch : Discord.TextChannel){
         if(this.isTimerProgress){
             this.stopTimerRequest = false;
-            this.channels.Living.send({embed: {
+            this.channels.Living.send({embeds: [{
                 title: format(this.langTxt.sys.restart_timer, {time : this.getTimeFormatFromSec(this.remTime)}),
                 color: this.langTxt.sys.system_color,
-            }});
+            }]});
         } else {
             ch.send(this.langTxt.sys.no_timer);
         }
@@ -979,7 +985,7 @@ export default class GameState {
     joinMember(message : Discord.Message, force = false){
         let send_text : string = "";
         let ng = false;
-        if (message.member != null && message.member.hasPermission('ADMINISTRATOR')){
+        if (message.member != null && message.member.permissions.has(Discord.Permissions.FLAGS.ADMINISTRATOR)){
             if(force){
                 this.sendWarn(
                     this.channels.Living,
@@ -1099,11 +1105,11 @@ export default class GameState {
             this.reactControllers[ReactType.WishRole] = Object.create(null);
             this.reactControllers[ReactType.NonWishRole] = Object.create(null);
 
-            this.channels.Living.send({embed: {
+            this.channels.Living.send({embeds: [{
                 title       : format(this.langTxt.p2.wish_role_preparations, {sec : this.ruleSetting.wish_role_time}),
                 description : this.langTxt.p2.wish_role_desc2 + "\n" + format(this.langTxt.p2.wish_role_desc3, {n : this.ruleSetting.wish_role_rand_weight}),
                 color       : this.langTxt.sys.system_color,
-            }});
+            }]});
             
             let rolesTxt = "";
             for(const r in this.defaultRoles){
@@ -1124,7 +1130,7 @@ export default class GameState {
                 const uch = this.members[uid].uchannel;
                 const uch2 = this.members[uid].uchannel2;
                 if(uch  == null || uch2 == null) continue;
-                uch.send({embed: embed}).then(message => {
+                uch.send({embeds: [embed]}).then(message => {
                     this.reactControllers[ReactType.WishRole][message.id] = message;
                     for(const r in this.defaultRoles){
                         if(this.defaultRoles[r] <= 0) continue;
@@ -1133,11 +1139,20 @@ export default class GameState {
                 });
                 uch.send(this.langTxt.p2.wish_role_desc_nowish).then(message => {
                     this.reactControllers[ReactType.NonWishRole][message.id] = message;
-                    const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+                    // const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+                    const m = message; // TODO: react by bot2
                     for(const r in this.defaultRoles){
                         if(this.defaultRoles[r] <= 0) continue;
                         m.react(this.langTxt.role_uni[r as Role]);
                     }
+                    // this.guild2.channels.fetch(uch2.id).then(c => {
+                    //     if (c == null || c.type !== 'GUILD_TEXT') return;
+                    //     c.messages.fetch(message.id).then(m => {
+                    //     for(const r in this.defaultRoles){
+                    //         if(this.defaultRoles[r] <= 0) continue;
+                    //         m.react(this.langTxt.role_uni[r as Role]);
+                    //     }
+                    // })})
                 });
                 for(const r in this.defaultRoles){
                     if(this.defaultRoles[r] <= 0) continue;
@@ -1294,7 +1309,7 @@ export default class GameState {
                 fields      : fields,
                 author      : {name: this.members[uid].nickname, iconURL: this.members[uid].user.displayAvatarURL()},
             });
-            uch.send({embed: embed});
+            uch.send({embeds: [embed]});
             if(enable_confirmation){
                 uch.send(getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next).then(message => {
                     this.reactControllers[ReactType.Accept][message.id] = message;
@@ -1312,13 +1327,13 @@ export default class GameState {
                 thumbnail   : {url: this.langTxt.role_img[role_str]},
                 fields      : [WerewolfRoomField],
             });
-            this.channels.Werewolf.send({embed: embed});
+            this.channels.Werewolf.send({embeds: [embed]});
         }
         if(enable_confirmation){
-            this.channels.Living.send({embed:{
+            this.channels.Living.send({embeds:[{
                 title       : format(this.langTxt.p2.done_preparations, {sec : this.ruleSetting.confirmation_sec}),
                 color       : this.langTxt.sys.system_color,
-            }});
+            }]});
             this.timerList.push(setTimeout(this.checkAcceptTimeout, this.ruleSetting.confirmation_sec *1000, this.gameId, this));
         } else {
             this.startFirstNight();
@@ -1342,7 +1357,7 @@ export default class GameState {
 
             let perm : Discord.OverwriteResolvable[] = [];
             perm.push({id: message.guild.id, allow: NoAccess_alw, deny:  NoAccess_dny});
-            message.guild.members.cache.array().forEach(m => {
+            message.guild.members.cache.forEach(m => {
                 if ((this.clients[0].user != null && m.id === this.clients[0].user.id)||
                     (this.clients[1].user != null && m.id === this.clients[1].user.id)){
                     perm.push({id: m.id, allow: Admin_alw, deny:  Admin_dny});
@@ -1352,16 +1367,16 @@ export default class GameState {
             });
             const guild = message.guild;
             let user_ch = guild.channels.cache.find(c => {
-                return c.name == ch_name && c.type === 'text' && c.parentID == this.parentID;
+                return c.name == ch_name && c.type === 'GUILD_TEXT' && c.parentId == this.parentID;
             }) as Discord.TextChannel | null;
 
             let g2 : Discord.Guild | null = null;
             if(user_ch != null){
                 console.log("Found ", user.username, " channnel", user_ch.id);
-                user_ch.overwritePermissions(perm);
+                user_ch.permissionOverwrites.set(perm);
                 g2 = this.guild2;
             } else {
-                user_ch = await message.guild.channels.create(ch_name, {parent : this.parentID, type : 'text', position : 1, permissionOverwrites:perm});
+                user_ch = await message.guild.channels.create(ch_name, {parent : this.parentID, type : 'GUILD_TEXT', position : 1, permissionOverwrites:perm});
                 console.log("New ", user.username, " channnel", user_ch.id);
                 g2 = await this.guild2.fetch();
             }
@@ -1369,7 +1384,7 @@ export default class GameState {
             if(g2 == null) return this.err();
 
             let user_ch2 = g2.channels.cache.find(c => {
-                return c.name == ch_name && c.type === 'text' && c.parentID == this.parentID;
+                return c.name == ch_name && c.type === 'GUILD_TEXT' && c.parentId == this.parentID;
             }) as Discord.TextChannel | null;
             if(user_ch2 == null) return this.err();
 
@@ -1378,7 +1393,7 @@ export default class GameState {
         }));
         return true;
     }
-    wishRoleCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean, isWish : boolean){
+    wishRoleCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, isAdd : boolean, isWish : boolean){
         // console.log("wishRoleCheck", user.username, isAdd, isWish);
 
         const roleName= Object.keys(this.defaultRoles).find(role => this.langTxt.role_uni[role as Role] == reaction.emoji.name) as Role | null;
@@ -1412,7 +1427,7 @@ export default class GameState {
             uch.send(txt);
         }
     }
-    preparationAccept(message : Discord.Message, user : Discord.User){
+    preparationAccept(message : Discord.Message | Discord.PartialMessage, user : Discord.User){
         if(Object.keys(this.members).find(k => k == user.id) == null) return;
         if(Object.keys(this.reactedMember).find(u => u == user.id) != null){
             message.channel.send(this.langTxt.p2.already_ac);
@@ -1491,10 +1506,10 @@ export default class GameState {
             }
         }
         this.killNext = [];
-        this.channels.Living.send({embed:{
+        this.channels.Living.send({embeds:[{
             title       : format(this.langTxt.p3.length_of_the_first_night, {time : this.getTimeFormatFromSec(this.remTime)}),
             color       : this.langTxt.sys.system_color,
-        }});
+        }]});
         this.httpGameState.updatePhase(this.langTxt.p3.phase_name);
         this.stopTimerRequest = false;
         gameTimer(this.gameId, this, Phase.p3_FirstNight, this.ruleSetting.first_night.alert_times, dummy_startP4Daytime);
@@ -1529,8 +1544,8 @@ export default class GameState {
                 thumbnail : {url: thumb},
                 fields    : [{name : format(this.langTxt.p4.living_and_num, {n : living_num}), value: living, inline : true}]
             });
-            this.channels.Living.send({embed: embed});
-            this.channels.GameLog.send({embed: embed});
+            this.channels.Living.send({embeds: [embed]});
+            this.channels.GameLog.send({embeds: [embed]});
         } else if(this.killNext.length === 0){
             const embed = new Discord.MessageEmbed({
                 author    : {name: format(this.langTxt.p4.day_number, {n : this.dayNumber})},
@@ -1538,8 +1553,8 @@ export default class GameState {
                 color     : this.langTxt.sys.no_killed_color,
                 fields    : [{name : format(this.langTxt.p4.living_and_num, {n : living_num}), value: living, inline : true}]
             });
-            this.channels.Living.send({embed:embed});
-            this.channels.GameLog.send({embed:embed});
+            this.channels.Living.send({embeds: [embed]});
+            this.channels.GameLog.send({embeds: [embed]});
         } else {
             // 未実装
         }
@@ -1553,23 +1568,23 @@ export default class GameState {
                     title     : format(this.langTxt.baker.deliver, {bread : bread}),
                     color     : this.langTxt.team_color.Good,
                 });
-                this.channels.Living.send({embed:embed});
+                this.channels.Living.send({embeds: [embed]});
             } else if(Object.keys(this.members).some(uid => this.members[uid].livingDays == this.dayNumber-1 && this.members[uid].role == Role.Baker)){
                 const embed = new Discord.MessageEmbed({
                     author    : {name: this.langTxt.role.Baker, iconURL: this.langTxt.role_img.Baker},
                     title     : this.langTxt.baker.killed,
                     color     : this.langTxt.sys.killed_color,
                 });
-                this.channels.Living.send({embed:embed});
+                this.channels.Living.send({embeds: [embed]});
             }
         }
 
         this.remTime = Math.max(0, this.ruleSetting.day.day_time - this.ruleSetting.day.reduction_time * (this.dayNumber - 1));
         // this.channels.Living.send(format(this.langTxt.p4.length_of_the_day, {time : this.getTimeFormatFromSec(this.remTime)}));
-        this.channels.Living.send({embed:{
+        this.channels.Living.send({embeds:[{
             title       : format(this.langTxt.p4.length_of_the_day, {time : this.getTimeFormatFromSec(this.remTime)}),
             color       : this.langTxt.sys.system_color,
-        }});
+        }]});
         this.daytimeStartTime = Date.now();
         this.makeCoCallController();
         this.makeCutTimeController();
@@ -1620,25 +1635,42 @@ export default class GameState {
             const uch  = this.members[uid].uchannel;
             const uch2 = this.members[uid].uchannel2;
             if(uch  == null || uch2 == null) continue;
-            uch.send(coEmbed).then(message => {
+            uch.send({embeds:[coEmbed]}).then(message => {
                 this.reactControllers[ReactType.CO][message.id] = message;
-                const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+                
+                // this.guild2.channels.fetch(uch2.id).then(c => {
+                //     if (c == null || c.type !== 'GUILD_TEXT') return;
+                //     c.messages.fetch(message.id).then(m => {
+                //     for(const r in this.defaultRoles){
+                //         m.react(this.langTxt.role_uni[r as Role]);
+                //     }
+                // })})
+                // const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+                const m = message; // TODO: react by bot2
                 for(const r in this.defaultRoles){
                     m.react(this.langTxt.role_uni[r as Role]);
                 }
             })
-            uch.send(whiteEmbed).then(message => {
+            uch.send({embeds:[whiteEmbed]}).then(message => {
                 this.reactControllers[ReactType.CallWhite][message.id] = message;
                 for(const uid in this.members){
                     message.react(this.members[uid].alpStr)
                 }
             })
-            uch.send(blackEmbed).then(message => {
-                const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+            uch.send({embeds:[blackEmbed]}).then(message => {
                 this.reactControllers[ReactType.CallBlack][message.id] = message;
+                // const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
+                const m = message; // TODO: react by bot2
                 for(const uid in this.members){
                     m.react(this.members[uid].alpStr)
                 }
+                // this.guild2.channels.fetch(uch2.id).then(c => {
+                //     if (c == null || c.type !== 'GUILD_TEXT') return;
+                //     c.messages.fetch(message.id).then(m => {
+                //     for(const uid in this.members){
+                //         m.react(this.members[uid].alpStr)
+                //     }
+                // })})
             })
         }
     }
@@ -1677,7 +1709,7 @@ export default class GameState {
                 title       : this.langTxt.dictator.button_desc,
                 color       : this.langTxt.sys.killed_color,
             });
-            uch.send(embed).then(message => {
+            uch.send({embeds:[embed]}).then(message => {
                 this.reactControllers[ReactType.Dictator][message.id] = message;
                 message.react(this.langTxt.dictator.uni);
             })
@@ -1720,7 +1752,7 @@ export default class GameState {
         }
         return fields;
     }
-    coCallCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType.CO | ReactType.CallWhite | ReactType.CallBlack){
+    coCallCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, type : ReactType.CO | ReactType.CallWhite | ReactType.CallBlack){
         const uch = this.members[user.id].uchannel;
         if(uch == null) return this.err();
         let embed : Discord.MessageEmbed | null = null;
@@ -1772,11 +1804,11 @@ export default class GameState {
         embed.description = format(this.langTxt.p4.call_time, {sec : time});
         embed.fields = this.makeCoCallLogFields();
 
-        this.channels.Living.send(embed);
-        this.channels.GameLog.send(embed);
+        this.channels.Living.send({embeds:[embed]});
+        this.channels.GameLog.send({embeds:[embed]});
         this.httpGameState.updateMembers();
     }
-    coColorCallCancellCheck(reaction : Discord.MessageReaction, user : Discord.User, type : ReactType.CallWhite | ReactType.CallBlack){
+    coColorCallCancellCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, type : ReactType.CallWhite | ReactType.CallBlack){
         const uch = this.members[user.id].uchannel;
         if(uch == null) return this.err();
         const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
@@ -1797,13 +1829,13 @@ export default class GameState {
         
         this.streams.playSe(this.srvSetting.se.call);
 
-        this.channels.Living.send(embed);
+        this.channels.Living.send({embeds:[embed]});
 
-        this.channels.GameLog.send(embed);
+        this.channels.GameLog.send({embeds:[embed]});
 
         this.httpGameState.updateMembers();
     }
-    cutTimeCheck(reaction : Discord.MessageReaction, user : Discord.User, isAdd : boolean){
+    cutTimeCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, isAdd : boolean){
         if(this.phase != Phase.p4_Daytime) return;
         if(reaction.emoji.toString() != this.langTxt.react.o) return;
 
@@ -1831,7 +1863,7 @@ export default class GameState {
             }
         }
     }
-    dictatorCheck(reaction : Discord.MessageReaction, user : Discord.User) {
+    dictatorCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
         const uch  = this.members[user.id].uchannel;
         if(uch == null) return;
         this.members[user.id].roleCmdInvokeNum++;
@@ -1844,9 +1876,9 @@ export default class GameState {
             if(!this.members[uid].isLiving) continue;
             const uch = this.members[uid].uchannel;
             if(uch == null) continue;
-            uch.send(embed);
+            uch.send({embeds:[embed]});
         }
-        this.channels.Living.send(embed);
+        this.channels.Living.send({embeds:[embed]});
         this.dictatorVoteMode = user.id;
         this.startP5_Vote();
     }
@@ -1857,10 +1889,10 @@ export default class GameState {
     startP5_Vote(){
         //! no use "this."
         if(this.voteNum === 0){
-            this.channels.Living.send({embed:{
+            this.channels.Living.send({embeds:[{
                 title       : format(this.langTxt.p5.end_daytime, {time : this.getTimeFormatFromSec(this.ruleSetting.vote.length)}),
                 color       : this.langTxt.sys.system_color,
-            }});
+            }]});
         }
         this.reactControllers[ReactType.CO]        = Object.create(null);
         this.reactControllers[ReactType.CallWhite] = Object.create(null);
@@ -1895,7 +1927,7 @@ export default class GameState {
                 color       : this.langTxt.sys.system_color,
                 fields      : [{name:this.langTxt.p5.vote_list, value: list}],
             });
-            uch.send({embed: embed}).then(message => {
+            uch.send({embeds: [embed]}).then(message => {
                 this.reactControllers[ReactType.Vote][message.id] = message;
                 for(const tid of this.members[uid].validVoteID){
                     message.react(this.members[tid].alpStr);
@@ -1977,9 +2009,9 @@ export default class GameState {
                 color : this.langTxt.sys.killed_color,
                 footer : {text: format(this.langTxt.p5.living_num, {n : living_num-1})},
             });
-            this.channels.Living.send(embed);
+            this.channels.Living.send({embeds:[embed]});
             this.broadcastLivingUserChannel(embed);
-            this.channels.GameLog.send(embed);
+            this.channels.GameLog.send({embeds:[embed]});
             this.lastExecuted = eid;
             this.kickMember(eid, KickReason.Vote);
         }else if(isLastVote) {
@@ -1989,9 +2021,9 @@ export default class GameState {
                 color : this.langTxt.sys.no_killed_color,
                 footer : {text: format(this.langTxt.p5.living_num, {n : living_num})},
             });
-            this.channels.Living.send(embed);
+            this.channels.Living.send({embeds:[embed]});
             this.broadcastLivingUserChannel(embed);
-            this.channels.GameLog.send(embed);
+            this.channels.GameLog.send({embeds:[embed]});
             this.lastExecuted = "";
             this.startP6_Night();
         } else {
@@ -2000,24 +2032,24 @@ export default class GameState {
                 description : desc,
                 color : this.langTxt.sys.system_color,
             });
-            this.channels.Living.send(embed);
+            this.channels.Living.send({embeds:[embed]});
             this.broadcastLivingUserChannel(embed);
-            this.channels.GameLog.send(embed);
+            this.channels.GameLog.send({embeds:[embed]});
             this.voteNum += 1;
             this.startP5_Vote();
         }
     }
 
     createVoteEmbed(from : Discord.MessageEmbedAuthor, text : string, uid : string){
-        return new Discord.MessageEmbed({
+        return {embeds:[new Discord.MessageEmbed({
             author : from,
             title : format(text, {user: this.members[uid].nickname}),
             thumbnail : {url: this.members[uid].avatar},
             color: this.langTxt.sys.system_color,
-        });
+        })]};
     }
 
-    voteCheck(reaction : Discord.MessageReaction, user : Discord.User){
+    voteCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User){
         const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
         if(tid == null) return;
         const uch = this.members[user.id].uchannel;
@@ -2068,10 +2100,10 @@ export default class GameState {
         this.httpGameState.updatePhase(format(this.langTxt.p6.phase_name, {n : this.dayNumber}));
 
         const nightComingMessage = format(this.langTxt.p6.start, {time : this.getTimeFormatFromSec(this.remTime)});
-        const nightComingEmbed = new Discord.MessageEmbed({
+        const nightComingEmbed = {embeds:[new Discord.MessageEmbed({
             title       : nightComingMessage,
             color       : this.langTxt.sys.system_color,
-        });
+        })]};
         this.channels.Living.send(nightComingEmbed);
         for(let my_id in this.members){
             this.members[my_id].voteTo = "";
@@ -2105,7 +2137,7 @@ export default class GameState {
                     color       : this.langTxt.team_color[getDefaultTeams(role)],
                     fields      : [{name:this.langTxt.knight.list, value: list}],
                 });
-                uch.send({embed: embed}).then(message => {
+                uch.send({embeds: [embed]}).then(message => {
                     this.reactControllers[ReactType.Knight][message.id] = message;
                     for(const tid of this.members[my_id].validVoteID){
                         message.react(this.members[tid].alpStr);
@@ -2133,11 +2165,11 @@ export default class GameState {
                         fields      : [{name:this.langTxt.fortune.list, value: list}],
                     });
                     if(this.members[my_id].validVoteID.length == 1){
-                        uch.send({embed: embed});
+                        uch.send({embeds: [embed]});
                         this.sendFP_Result(my_id, uch, this.members[my_id].validVoteID[0], this.langTxt.fortune, this.langTxt.role_img.Seer);
                         this.members[my_id].validVoteID = [];
                     }else{
-                        uch.send({embed: embed}).then(message => {
+                        uch.send({embeds: [embed]}).then(message => {
                             this.reactControllers[ReactType.Seer][message.id] = message;
                             for(const tid of this.members[my_id].validVoteID){
                                 message.react(this.members[tid].alpStr);
@@ -2169,7 +2201,7 @@ export default class GameState {
                 color       : this.langTxt.team_color[getDefaultTeams(role)],
                 fields      : [{name:this.langTxt.werewolf.list, value: list}],
             });
-            this.channels.Werewolf.send({embed: embed}).then(message => {
+            this.channels.Werewolf.send({embeds: [embed]}).then(message => {
                 this.reactControllers[ReactType.Werewolf][message.id] = message;
                 for(const tid of this.wolfValidTo){
                     message.react(this.members[tid].alpStr);
@@ -2192,7 +2224,7 @@ export default class GameState {
         this.stopTimerRequest = false;
         gameTimer(this.gameId, this, Phase.p6_Night, this.ruleSetting.night.alert_times, dummy_nightFinish);
     }
-    nightKnightCheck(reaction : Discord.MessageReaction, user : Discord.User) {
+    nightKnightCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
         const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
         if(tid == null) return;
         const uch = this.members[user.id].uchannel;
@@ -2213,7 +2245,7 @@ export default class GameState {
             }
         }
     }
-    nightSeerCheck(reaction : Discord.MessageReaction, user : Discord.User) {
+    nightSeerCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
         const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
         if(tid == null) return;
         const uch = this.members[user.id].uchannel;
@@ -2226,7 +2258,7 @@ export default class GameState {
             this.sendFP_Result(user.id, uch, tid, this.langTxt.fortune, this.langTxt.role_img.Seer);
         }
     }
-    nightWerewolfCheck(reaction : Discord.MessageReaction, user : Discord.User) {
+    nightWerewolfCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
         if(this.wolfValidFrom.find(i => i == user.id) == null) return;
         const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
         if(tid == null) return;
@@ -2395,8 +2427,8 @@ export default class GameState {
             color       : this.langTxt.team_color[winTeam],
             fields      : fields,
         });
-        this.channels.Living.send({embed: embed});
-        this.channels.GameLog.send({embed: embed});
+        this.channels.Living.send({embeds: [embed]});
+        this.channels.GameLog.send({embeds: [embed]});
 
         let MentionText = "";
         for(const mid in this.members){
@@ -2448,12 +2480,12 @@ export default class GameState {
             if(dat == "") dat = "(None)"
             fields.push({name : this.langTxt.sys.sys_Dev_list_title, value : dat, inline:true});
         }
-        ch.send({embed: {
+        ch.send({embeds: [{
             title: this.langTxt.sys.sys_need_GM_perm,
             color: this.langTxt.sys.system_err_color,
             author: {name: "Error!", icon_url: "https://twemoji.maxcdn.com/2/72x72/1f6ab.png"},
             fields : fields,
-        }});
+        }]});
     }
     needDevPerm(ch : Discord.TextChannel){
         let fields : Discord.EmbedField[] = [];
@@ -2466,12 +2498,12 @@ export default class GameState {
             if(dat == "") dat = "(None)"
             fields.push({name : this.langTxt.sys.sys_Dev_list_title, value : dat, inline : true});
         }
-        ch.send({embed: {
+        ch.send({embeds: [{
             title: this.langTxt.sys.sys_need_Dev_perm,
             color: this.langTxt.sys.system_err_color,
             author: {name: "Error!", icon_url: "https://twemoji.maxcdn.com/2/72x72/1f6ab.png"},
             fields : fields,
-        }});
+        }]});
     }
     reloadDefaultRule(){
         const SysRuleSet = loadAndSetSysRuleSet("./rule_setting_templates/default.json5");
@@ -2483,7 +2515,7 @@ export default class GameState {
         }
     }
 
-    reactCommandRemove(reaction : Discord.MessageReaction, user : Discord.User){
+    reactCommandRemove(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User){
         const uid = Object.keys(this.members).find(k => k == user.id);
         if(uid == null) return;
         if(!this.members[uid].isLiving) return;
@@ -2512,7 +2544,7 @@ export default class GameState {
             }
         }
     }
-    reactCommand(reaction : Discord.MessageReaction, user : Discord.User){
+    reactCommand(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User){
         const uid = Object.keys(this.members).find(k => k == user.id);
         if(uid == null) return;
         if(!this.members[uid].isLiving) return;
@@ -2597,27 +2629,27 @@ export default class GameState {
 
         if(isThisCommand(message.content, this.langTxt.sys.cmd_reload_rule) >= 0){
             if(isGM){ this.reloadDefaultRule();
-            } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
+            } else if(message.channel.type == 'GUILD_TEXT') {  this.needGmPerm(message.channel);
             }
             return;
         }
 
         if(isThisCommand(message.content, this.langTxt.sys.cmd_link_voice) >= 0){
             if(isGM){ await this.voiceChannelsLink();
-            } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
+            } else if(message.channel.type == 'GUILD_TEXT') {  this.needGmPerm(message.channel);
             }
             return;
         }
         if(isThisCommand(message.content, this.langTxt.sys.cmd_unlink_voice) >= 0){
             if(isGM){ await this.voiceChannelsLink();
-            } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
+            } else if(message.channel.type == 'GUILD_TEXT') {  this.needGmPerm(message.channel);
             }
             this.voiceChannelsUnlink();
             return;
         }
         if(isThisCommand(message.content, this.langTxt.sys.cmd_stop_timer) >= 0){
             const ch = message.channel;
-            if(ch.type == 'text') {
+            if(ch.type == 'GUILD_TEXT') {
                 if(isGM){ this.stopTimer(ch);
                 }else{ this.needGmPerm(ch) }
             }
@@ -2625,7 +2657,7 @@ export default class GameState {
         }
         if(isThisCommand(message.content, this.langTxt.sys.cmd_resume_timer) >= 0){
             const ch = message.channel;
-            if(ch.type == 'text') {
+            if(ch.type == 'GUILD_TEXT') {
                 if(isGM){ this.resumeTimer(ch);
                 }else{ this.needGmPerm(ch) }
             }
@@ -2633,7 +2665,7 @@ export default class GameState {
         
         if(isThisCommand(message.content, this.langTxt.sys.cmd_member_list) >= 0){
             const ch = message.channel;
-            if(ch.type == 'text') {
+            if(ch.type == 'GUILD_TEXT') {
                 this.sendMemberList(ch);
             }
             return;
@@ -2661,7 +2693,7 @@ export default class GameState {
             if(idx >= 0){
                 if(isGM){ 
                     this.changeRule(message.content.substring(this.langTxt.sys.cmd_change_rule[idx].length));
-                } else if(message.channel.type == 'text') {
+                } else if(message.channel.type == 'GUILD_TEXT') {
                     this.needGmPerm(message.channel);
                 }
                 return;
@@ -2689,7 +2721,7 @@ export default class GameState {
             idx = isThisCommand(message.content, this.langTxt.p1.cmd_setroles);
             if(idx >= 0){
                 if(isGM){ this.setRolesStr(message.content.substring(this.langTxt.p1.cmd_setroles[idx].length));
-                } else if(message.channel.type == 'text') {  this.needGmPerm(message.channel);
+                } else if(message.channel.type == 'GUILD_TEXT') {  this.needGmPerm(message.channel);
                 }
                 return;
             }
