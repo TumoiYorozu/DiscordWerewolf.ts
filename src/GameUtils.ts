@@ -69,6 +69,33 @@ export function loadAndSetSysRuleSet(path : string, RuleSet ?: RuleType){
     }
 }
 
+export function make_button(id : string, label : string, opt : {
+    emoji? : string,
+    style? : Discord.MessageButtonStyle | "blue" | "green" | "black" | "red",
+}) {
+    const res = new Discord.MessageButton().setCustomId(id).setLabel(label);
+    if (opt.emoji) res.setEmoji(opt.emoji);
+    if (opt.style) {
+        if (opt.style == "PRIMARY"   || opt.style == "blue")  res.setStyle("PRIMARY");
+        if (opt.style == "SUCCESS"   || opt.style == "green") res.setStyle("SUCCESS");
+        if (opt.style == "SECONDARY" || opt.style == "black") res.setStyle("SECONDARY");
+        if (opt.style == "DANGER"    || opt.style == "red")   res.setStyle("DANGER");
+        if (opt.style == "LINK") res.setStyle("LINK");
+    }
+    return res;
+}
+
+export function arrange_buttons(buttons : Discord.MessageButton[]) {
+    const rows = Math.ceil(buttons.length / 5);
+    const components : Discord.MessageActionRow[] = [];
+    for (let i = 0; i < rows; ++i) {
+        components[i] = new Discord.MessageActionRow();
+    }
+    for (let i = 0; i < buttons.length; ++i) {
+        components[i % rows].addComponents(buttons[i]);
+    }
+    return components;
+}
 
 export function updateHashValueWithFormat(attribute : string, value : any, runtimeType : JsonRuntimeType, hash : any) : boolean {
     const delimiters = ['/', '\\', '.'];

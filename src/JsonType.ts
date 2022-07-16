@@ -154,6 +154,8 @@ export const LangTypeFormat = obj({
         dead         : str,
         welcome_dead : str,
         no_result    : str,
+
+        cuttime_desc : str,
     }),
     rule : obj({
         title : str,
@@ -228,6 +230,7 @@ export const LangTypeFormat = obj({
         o   : str,
         x   : str,
         alp : arr(str),
+        num : arr(str),
     }),
 
     p0
@@ -315,6 +318,9 @@ export const LangTypeFormat = obj({
         living_and_num       : str,
         length_of_the_day    : str,
 
+        co_call_cuttime_title : str,
+        co_call_cuttime_desc  : str,
+
         coming_out_sel_title    : str,
         call_white_sel_title    : str,
         call_black_sel_title    : str,
@@ -328,6 +334,7 @@ export const LangTypeFormat = obj({
         call_time               : str,
         publish_order           : str,
 
+        cut_time_label          : str,
         cut_time_title          : str,
         cut_time_accept         : str,
         cut_time_cancel         : str,
@@ -348,6 +355,7 @@ export const LangTypeFormat = obj({
         vote_change   : str,
         already_vote  : str,
         no_revoting   : str,
+        no_selfvote   : str,
         
         vote_format        : str,
         vote_anonym_format : str,

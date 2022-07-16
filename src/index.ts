@@ -302,6 +302,7 @@ async function on_message(bid : number, message : Discord.Message){
                         if(ch2 != null){
                             Games[paID] = new GameState(clients, Games, message.guild, guild2, ch, ch2, paID, httpServer, SrvLangTxt, SrvRuleSet, ServerSetting);
                             ch.Living.send(SrvLangTxt.p0.rediscovered_room)
+                            // console.trace("再認識");
                             Games[paID].start_1Wanted();
                             await Games[paID].command(message);
                             if(ServerSetting.auto_voice_link){
@@ -346,31 +347,24 @@ async function on_message(bid : number, message : Discord.Message){
 clients[0].on("messageCreate", async message => await on_message(0, message));
 clients[1].on("messageCreate", async message => await on_message(1, message));
 
-clients[0].on('messageReactionAdd', (reaction, user) => {
+clients[0].on('interactionCreate', async (interaction) => {
+    if (clients[0].user == null) return;
+    if (clients[1].user == null) return;
+    if (!interaction.isButton()) return;
 
-    if (clients[0].user == null || user.id == clients[0].user.id) return;
-    if (clients[1].user == null || user.id == clients[1].user.id) return;
-    if(reaction.message.channel.type === 'GUILD_TEXT'){
-        if(reaction.message.channel.parentId != null){
-            const pid = reaction.message.channel.parentId;
-            if(Object.keys(Games).find((v : string ) => v == pid) != null){
-                reaction;
-                Games[pid].reactCommand(reaction, user as Discord.User);
-            }
-        }
-    }
-});
-clients[0].on('messageReactionRemove', (reaction, user) => {
-    if (clients[0].user == null || user.id == clients[0].user.id) return;
-    if (clients[1].user == null || user.id == clients[1].user.id) return;
-    if(reaction.message.channel.type === 'GUILD_TEXT'){
-        if(reaction.message.channel.parentId != null){
-            const pid = reaction.message.channel.parentId;
-            if(Object.keys(Games).find((v : string ) => v == pid) != null){
-                Games[pid].reactCommandRemove(reaction, user as Discord.User);
-            }
-        }
-    }
+    // TODO
+    const pid = Object.keys(Games).find( key => {
+        if (Games[key].guild.id != interaction.guildId) return false;
+        if (Games[key].channels.Living.id == interaction.channelId) return true;
+        if (Games[key].channels.Werewolf.id == interaction.channelId) return true;
+        return Object.keys(Games[key].members).find( uid => {
+            const uch = Games[key].members[uid].uchannel;
+            if (uch == null) return false;
+            return (uch.id == interaction.channelId);
+        });
+    });
+    if (pid == null) return;
+    await Games[pid].interactCommand(interaction);
 });
 
 

@@ -1,6 +1,7 @@
 import * as Discord from "discord.js";
 import LiveStream     from "./LiveStream"
 import {GameChannels, format, isThisCommand, assertUnreachable, shuffle, loadAndSetSysRuleSet, updateHashValueWithFormat} from "./GameUtils"
+import * as Util from "./GameUtils"
 import {LangType, RuleType, RolesStr, FortunePriestType, ServerSettingsType, RuleTypeFormat} from "./JsonType";
 import {HttpServer, HttpGameState} from "./HttpServer"
 
@@ -125,7 +126,6 @@ class GameMember {
     uchannel2       : Discord.TextChannel | null = null;
     role            : Role | null = null;
     wishRole        : { [key: string]: number; }  = Object.create(null);
-    nonWishRole     : { [key: string]: number; }  = Object.create(null);
     allowWolfRoom   : boolean     = false;
     actionLog       : [string, TeamNames][] = [];
     isLiving        : boolean  = true;
@@ -140,18 +140,17 @@ class GameMember {
     coRole          : Role   | null = null;
     callLog         : [string, boolean][] = [];
     roleCmdInvokeNum:number    = 0;
-    constructor(message : Discord.Message) {
-        this.user = message.author;
-        this.member = message.member;
-        this.nickname = getNicknameFromMes(message);
-        const ava = message.author.displayAvatarURL();
+    constructor(m : Discord.GuildMember) {
+        this.user = m.user;
+        this.member = m;
+        this.nickname = getNicknameFromMem(m);
+        const ava = m.user.displayAvatarURL();
         this.avatar = ((ava == null) ? "" : ava);
         this.reset();
     }
     reset() {
         this.role = null;
         this.wishRole    = Object.create(null);
-        this.nonWishRole = Object.create(null);
         this.allowWolfRoom = false;
         this.actionLog = [];
         this.isLiving = true;
@@ -208,19 +207,16 @@ function addPerm(id : string, p : Perm, perms : Discord.OverwriteResolvable[]){
     }
 }
 
-enum ReactType {
+enum InteractType {
     Accept,
     WishRole,
-    NonWishRole,
     Vote,
     Knight,
     Seer,
     Werewolf,
-    CO,
-    CallWhite,
-    CallBlack,
-    CutTime,
+    CO_Call,
     Dictator,
+    CutTime,
 }
 
 export enum KickReason {
@@ -256,7 +252,7 @@ export default class GameState {
     members     : { [key: string]: GameMember; }  = Object.create(null);
     reqMemberNum : number = 0;
     
-    reactControllers : { [key: string]: Discord.Message; }[] = [];
+    interactControllers : { [key: string]: Discord.Message; }[] = [];
     reactedMember : { [key: string]: number; }  = Object.create(null);
     cutTimeMember : { [key: string]: number; }  = Object.create(null);
     p2CanForceStartGame : boolean;
@@ -332,7 +328,7 @@ export default class GameState {
         }
         this.resetReactedMember();
         this.gameId = Math.floor(Math.random() * 0x40000000);
-        this.reactControllers = [];
+        this.interactControllers = [];
         this.p2CanForceStartGame = false;
         this.remTime     = -1;
         this.stopTimerRequest = false;
@@ -345,8 +341,8 @@ export default class GameState {
         this.wolfValidFrom = [];
         this.wolfLog       = [];
         this.dictatorVoteMode = "";
-        for(let key in ReactType){
-            this.reactControllers.push(Object.create(null));
+        for(let key in InteractType){
+            this.interactControllers.push(Object.create(null));
         }
         this.phase       = Phase.p0_UnStarted;
     }
@@ -370,7 +366,7 @@ export default class GameState {
             description : httpURL,
             color: this.langTxt.sys.system_color,
         }]});
-
+        // console.trace("ブラウザモニターを開始しました");
         return sid;
     }
     err(){
@@ -387,7 +383,7 @@ export default class GameState {
             text += this.members[key].nickname + "\n";
         });
         ch.send({embeds: [{
-            title: format(this.langTxt.sys.Current_join_member_num, {num : now_num}),
+            title: format(this.langTxt.sys.Current_join_member_num, {num : now_num, max : this.reqMemberNum}),
             description : text,
             color: this.langTxt.sys.system_color,
         }]});
@@ -440,6 +436,7 @@ export default class GameState {
         }
         console.log(this.defaultRoles);
         this.sendWantNums(this.channels.Living);
+        this.updateWantedEmb(null);
     }
     sendWantNums(tch: Discord.TextChannel){
         let team     : {[key: string]: string} = Object.create(null);
@@ -531,11 +528,19 @@ export default class GameState {
         console.log(this.ruleSetting);
     }
 
-    start_1Wanted(){
+    async start_1Wanted(){
         this.phase = Phase.p1_Wanted;
         this.updateRoomsRW();
-        this.channels.Living.send(format(this.langTxt.p1.start_p1, {cmd : this.langTxt.p1.cmd_join[0]}));
         this.sendWantNums(this.channels.Living);
+        const join_button = Util.make_button("join", this.langTxt.p1.cmd_join[0], {style : "green", emoji: this.langTxt.role_uni.Werewolf});
+        const sent_message = await this.channels.Living.send({
+            content: this.langTxt.p0.start_recruiting,
+            components: [ new Discord.MessageActionRow().addComponents(join_button) ]
+        });
+        this.interactControllers[InteractType.Accept][sent_message.id] = sent_message;
+        this.httpGameState.updatePhase(this.langTxt.p1.phase_name);
+        this.updateWantedEmb(null);
+
         this.httpGameState.updatePhase(this.langTxt.p1.phase_name);
     }
     sendWarn(ch : Discord.TextChannel, title : string, desc : string){
@@ -885,13 +890,14 @@ export default class GameState {
         }
         return format(this.langTxt.sys.time_formatMS, {sec : s, min : m});
     }
-    kickMember(uid : string, reason : KickReason) {
+    async kickMember(uid : string, reason : KickReason) {
         this.members[uid].isLiving = false;
         this.members[uid].livingDays = this.dayNumber;
 
-        const uch = this.members[uid].uchannel;
-        if(uch == null) return this.err();
-        uch.send(getUserMentionStrFromId(uid) + this.langTxt.sys.dead);
+        // const uch = this.members[uid].uchannel;
+        // if(uch == null) return this.err();
+        // uch.send(getUserMentionStrFromId(uid) + this.langTxt.sys.dead);
+        // this.channels.Living.send(getUserMentionStrFromId(uid) + this.langTxt.sys.dead);
         this.channels.Dead.send({embeds: [{
             title: format(this.langTxt.sys.welcome_dead, {user : this.members[uid].nickname}),
             color: this.langTxt.sys.system_color,
@@ -929,7 +935,7 @@ export default class GameState {
         this.updateRoomsRW();
 
         if(reason == KickReason.Vote){
-            this.startP6_Night();
+            await this.startP6_Night();
         }
     }
     broadcastLivingUserChannel(mess : string | Discord.MessageEmbed){
@@ -982,9 +988,77 @@ export default class GameState {
         }
     }
     ////////////////////////////////////////////
+    updateWantedEmb(mes : Discord.Message | null) {
+        let message : Discord.Message | null
+        if (mes != null) {
+            message = mes;
+        } else {
+            let keys = Object.keys(this.interactControllers[InteractType.Accept]);
+            if (keys.length == 0) return;
+            if (keys.length >= 2) { 
+                this.err();
+                return;
+            }
+            message = this.interactControllers[InteractType.Accept][keys[0]];
+        }
+        const now_num = Object.keys(this.members).length;
+        let   text : string = "";
+        Object.keys(this.members).forEach((key, idx) => {
+            text += this.members[key].nickname + "\n";
+        });
+        message.edit({embeds: [{
+            title: format(this.langTxt.sys.Current_join_member_num, {num : now_num, max : this.reqMemberNum}),
+            description : text,
+            color: this.langTxt.sys.system_color,
+        }]});
+    }
+
+    async joinMemberInteract(interaction : Discord.ButtonInteraction, mes : Discord.Message){
+        let send_text : string = "";
+        let ng = false;
+        if (interaction.member == null)  return;
+
+        // custom_id
+
+        if (typeof interaction.member.permissions === "string") {
+            console.error("interaction.member.permissions type err", interaction.member.permissions);
+            return;
+        }
+        if (interaction.member.permissions.has(Discord.Permissions.FLAGS.ADMINISTRATOR)){
+            this.sendErr(
+                this.channels.Living,
+                "",
+                format(this.langTxt.p1.err_join_admin, {user_m : getUserMentionStr(interaction.user), cmd : this.langTxt.p1.cmd_join_force[0]}));
+            ng = true;
+        }
+        if(!ng){
+            const member2 = interaction.member;
+            const member = await this.guild.members.fetch(interaction.user.id)
+            if(interaction.user.id in this.members){
+                send_text += format(this.langTxt.p1.already_in, {user : getNicknameFromMem(member), leave : this.langTxt.p1.cmd_leave[0]});
+            } else {
+                this.members[interaction.user.id] = new GameMember(member);
+                send_text += format(this.langTxt.p1.welcome, {user : getNicknameFromMem(member)});
+            }
+            this.httpGameState.updateMembers();
+            interaction.reply({
+                content: send_text,
+                ephemeral: true
+            });
+            this.updateWantedEmb(mes);
+        } else {
+            interaction.update({}); // do nothing
+        }
+        const now_num = Object.keys(this.members).length;
+        if(now_num == this.reqMemberNum){
+            let send_text2 = format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
+            this.channels.Living.send(send_text2);
+        }
+    }
     joinMember(message : Discord.Message, force = false){
         let send_text : string = "";
         let ng = false;
+        if (message.member == null) return;
         if (message.member != null && message.member.permissions.has(Discord.Permissions.FLAGS.ADMINISTRATOR)){
             if(force){
                 this.sendWarn(
@@ -1003,7 +1077,7 @@ export default class GameState {
             if(message.author.id in this.members){
                 send_text += format(this.langTxt.p1.already_in, {user : getNicknameFromMes(message), leave : this.langTxt.p1.cmd_leave[0]});
             } else {
-                this.members[message.author.id] = new GameMember(message);
+                this.members[message.author.id] = new GameMember(message.member);
                 send_text += format(this.langTxt.p1.welcome, {user : getNicknameFromMes(message)});
             }
             this.httpGameState.updateMembers();
@@ -1014,6 +1088,7 @@ export default class GameState {
             send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
         }
         this.channels.Living.send(send_text);
+        this.updateWantedEmb(null);
     }
     leaveMember(message : Discord.Message){
         let send_text : string = "";
@@ -1030,6 +1105,7 @@ export default class GameState {
             send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
         }
         this.channels.Living.send(send_text);
+        this.updateWantedEmb(null);
     }
     kickEntryMember(message : Discord.Message){
         let send_text : string = "";
@@ -1051,6 +1127,7 @@ export default class GameState {
             send_text += "\n" + format(this.langTxt.p1.member_full, {cmd : this.langTxt.p1.cmd_start[0]});
         }
         this.channels.Living.send(send_text);
+        this.updateWantedEmb(null);
     }
     async checkStartGame(message : Discord.Message){
         const now_num = Object.keys(this.members).length;
@@ -1064,9 +1141,9 @@ export default class GameState {
         }
         await this.gamePreparation(message);
     }
-    resetGame(){
+    async resetGame(){
         this.reset();
-        this.start_1Wanted();
+        await this.start_1Wanted();
         this.sendMemberList(this.channels.Living);
 
         const now_num = Object.keys(this.members).length;
@@ -1087,6 +1164,7 @@ export default class GameState {
     async gamePreparation(message : Discord.Message){
         this.phase = Phase.p2_Preparation;
         this.dayNumber = 0;
+        this.interactControllers[InteractType.Accept] = Object.create(null);
         this.channels.Living.send(this.langTxt.p2.start_preparations);
         this.sendWantNums(this.channels.Living);
         this.sendMemberList(this.channels.Living);
@@ -1100,10 +1178,9 @@ export default class GameState {
         this.updateRoomsRW();
 
         if(this.ruleSetting.wish_role_time <= 0){
-            this.gamePreparation2();
+            await this.gamePreparation2();
         } else {
-            this.reactControllers[ReactType.WishRole] = Object.create(null);
-            this.reactControllers[ReactType.NonWishRole] = Object.create(null);
+            this.interactControllers[InteractType.WishRole] = Object.create(null);
 
             this.channels.Living.send({embeds: [{
                 title       : format(this.langTxt.p2.wish_role_preparations, {sec : this.ruleSetting.wish_role_time}),
@@ -1119,50 +1196,53 @@ export default class GameState {
 
             const embed = new Discord.MessageEmbed({
                 title       : format(this.langTxt.p2.wish_role_desc1, {sec : this.ruleSetting.wish_role_time}),
-                description : this.langTxt.p2.wish_role_desc2 + "\n\n" + rolesTxt + "\n" + this.langTxt.p2.wish_role_desc_wish,
+                description : this.langTxt.p2.wish_role_desc2 + "\n\n" + rolesTxt,
                 color       : this.langTxt.sys.system_color,
             });
-
             for(const uid in this.members){
                 this.members[uid].wishRole = Object.create(null);
-                this.members[uid].nonWishRole = Object.create(null);
-
-                const uch = this.members[uid].uchannel;
-                const uch2 = this.members[uid].uchannel2;
-                if(uch  == null || uch2 == null) continue;
-                uch.send({embeds: [embed]}).then(message => {
-                    this.reactControllers[ReactType.WishRole][message.id] = message;
-                    for(const r in this.defaultRoles){
-                        if(this.defaultRoles[r] <= 0) continue;
-                        message.react(this.langTxt.role_uni[r as Role]);
-                    }
-                });
-                uch.send(this.langTxt.p2.wish_role_desc_nowish).then(message => {
-                    this.reactControllers[ReactType.NonWishRole][message.id] = message;
-                    // const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
-                    const m = message; // TODO: react by bot2
-                    for(const r in this.defaultRoles){
-                        if(this.defaultRoles[r] <= 0) continue;
-                        m.react(this.langTxt.role_uni[r as Role]);
-                    }
-                    // this.guild2.channels.fetch(uch2.id).then(c => {
-                    //     if (c == null || c.type !== 'GUILD_TEXT') return;
-                    //     c.messages.fetch(message.id).then(m => {
-                    //     for(const r in this.defaultRoles){
-                    //         if(this.defaultRoles[r] <= 0) continue;
-                    //         m.react(this.langTxt.role_uni[r as Role]);
-                    //     }
-                    // })})
-                });
                 for(const r in this.defaultRoles){
                     if(this.defaultRoles[r] <= 0) continue;
-                    this.members[uid].wishRole[r]    = 0;
-                    this.members[uid].nonWishRole[r] = 0;
+                    this.members[uid].wishRole[r]    = 3;
                 }
+                const components = this.makeWishRoleBottons(uid);
+                const uch = this.members[uid].uchannel;
+                if (uch  == null) continue;
+                const sent_message = await uch.send({embeds: [embed], components : components});
+                this.interactControllers[InteractType.WishRole][sent_message.id] = sent_message;
             }
             this.remTime = this.ruleSetting.wish_role_time;
             gameTimer(this.gameId, this, Phase.p2_Preparation, [], dummy_gamePreparation2);
         }
+    }
+    makeWishRoleBottons (uid : string) {
+        const components : Discord.MessageActionRow[] = [];
+        for(const r in this.defaultRoles){
+            const col = new Discord.MessageActionRow();
+            const runi = this.langTxt.role_uni[r as Role];
+            const now = this.members[uid].wishRole[r];
+            for(let i = 1; i <= 5; ++i) {
+                if (i == now) {
+                    col.addComponents(Util.make_button(i + "_" + r, this.langTxt.role[r as Role] + runi, {style : "green", emoji : this.langTxt.react.num[i]}));
+                } else {
+                    col.addComponents(Util.make_button(i + "_" + r, runi, {style : "black", emoji : this.langTxt.react.num[i]}));
+                }
+            }
+            components.push(col);
+        }
+        return components;
+    }
+    wishRoleCheck(interaction : Discord.ButtonInteraction){
+        const value = parseInt(interaction.customId[0]);
+        if (value < 1 || value > 5) return;
+        const roleStr = interaction.customId.substring(2);
+        const roleName= Object.keys(this.defaultRoles).find(role => role == roleStr) as Role | null;
+        if(roleName == null) return;
+        
+        this.members[interaction.user.id].wishRole[roleName] = value;
+        if (interaction.message.type != "DEFAULT" ) return;
+        const components = this.makeWishRoleBottons(interaction.user.id);
+        interaction.update({components : components});
     }
 
     // http://www.prefield.com/algorithm/math/hungarian.html
@@ -1215,7 +1295,7 @@ export default class GameState {
         }
         return x;
     }
-    gamePreparation2() {
+    async gamePreparation2() {
 
         const enable_confirmation = (this.ruleSetting.wish_role_time <= 0);
         let role_arr : Role[] = [];
@@ -1228,8 +1308,7 @@ export default class GameState {
             console.log(role_arr);
             role_arr = shuffle(role_arr);
         }else{
-            this.reactControllers[ReactType.WishRole] = Object.create(null);
-            this.reactControllers[ReactType.NonWishRole] = Object.create(null);
+            this.interactControllers[InteractType.WishRole] = Object.create(null);
 
             const members = shuffle(Object.keys(this.members));
             let mat : number[][] = new Array<number[]>(members.length);
@@ -1248,7 +1327,7 @@ export default class GameState {
                     const r = roles[j];
                     const score =
                         Math.floor(Math.random() * this.ruleSetting.wish_role_rand_weight * scale)
-                        + scale * (this.members[uid].wishRole[r] + this.members[uid].nonWishRole[r] + 20);
+                        + scale * this.members[uid].wishRole[r];
                     mat[i].push(score);
                 }
             }
@@ -1311,10 +1390,11 @@ export default class GameState {
             });
             uch.send({embeds: [embed]});
             if(enable_confirmation){
-                uch.send(getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next).then(message => {
-                    this.reactControllers[ReactType.Accept][message.id] = message;
-                    message.react(this.langTxt.react.o);
+                const sent_message = await uch.send({
+                    content : getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next,
+                    components : [new Discord.MessageActionRow().addComponents(Util.make_button("accept", this.langTxt.react.o, {style : "black"}))]
                 });
+                this.interactControllers[InteractType.Accept][sent_message.id] = sent_message;
             }
         });
         { // for Werewolf
@@ -1393,48 +1473,24 @@ export default class GameState {
         }));
         return true;
     }
-    wishRoleCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, isAdd : boolean, isWish : boolean){
-        // console.log("wishRoleCheck", user.username, isAdd, isWish);
-
-        const roleName= Object.keys(this.defaultRoles).find(role => this.langTxt.role_uni[role as Role] == reaction.emoji.name) as Role | null;
-        if(roleName == null) return;
-
-        if(isAdd){
-            if(isWish){
-                this.members[user.id].wishRole[roleName] = 1;
+    preparationAccept(uid : string, interaction : Discord.ButtonInteraction | null){
+        if(Object.keys(this.members).find(k => k == uid) == null) return;
+        if(Object.keys(this.reactedMember).find(u => u == uid) != null){
+            if (interaction != null) {
+                interaction.reply(this.langTxt.p2.already_ac);
             } else {
-                this.members[user.id].nonWishRole[roleName] = -2;
+                const uch = this.members[uid].uchannel;
+                if (uch) uch.send(this.langTxt.p2.already_ac);
             }
-        } else {
-            if(isWish){
-                this.members[user.id].wishRole[roleName] = 0;
-            } else {
-                this.members[user.id].nonWishRole[roleName] = 0;
-            }
-        }
-        let txt = this.langTxt.p2.wish_role_req;
-        let dat : [number, Role][] = [];
-        for(const r in this.defaultRoles){
-            if(this.defaultRoles[r] <= 0) continue;
-            dat.push([this.members[user.id].wishRole[r] + this.members[user.id].nonWishRole[r], r as Role]);
-        }
-        dat.sort().reverse();
-        for(const p of dat){
-            txt += " " + this.langTxt.emo[p[1]] + this.langTxt.role[p[1]] + p[0];
-        }
-        const uch = this.members[user.id].uchannel;
-        if(uch != null){
-            uch.send(txt);
-        }
-    }
-    preparationAccept(message : Discord.Message | Discord.PartialMessage, user : Discord.User){
-        if(Object.keys(this.members).find(k => k == user.id) == null) return;
-        if(Object.keys(this.reactedMember).find(u => u == user.id) != null){
-            message.channel.send(this.langTxt.p2.already_ac);
             return;
         }
-        message.channel.send(format(this.langTxt.p2.new_accept, {user : this.members[user.id].nickname}));
-        this.reactedMember[user.id] = 1;
+        if (interaction != null) {
+            interaction.reply(format(this.langTxt.p2.new_accept, {user : this.members[uid].nickname}));
+        } else {
+            const uch = this.members[uid].uchannel;
+            if (uch) uch.send(format(this.langTxt.p2.new_accept, {user : this.members[uid].nickname}));
+        }
+        this.reactedMember[uid] = 1;
         if(Object.keys(this.reactedMember).length == Object.keys(this.members).length){
             this.channels.Living.send(this.langTxt.p2.all_accept);
             this.startFirstNight();
@@ -1469,7 +1525,7 @@ export default class GameState {
         this.phase = Phase.p3_FirstNight;
         this.remTime = this.ruleSetting.first_night.first_night_time;
         this.updateRoomsRW();
-        this.reactControllers[ReactType.Accept] = Object.create(null);
+        this.interactControllers[InteractType.Accept] = Object.create(null);
         for(let my_id in this.members){
             const uch = this.members[my_id].uchannel;
             if(uch == null) return this.err();
@@ -1517,7 +1573,7 @@ export default class GameState {
     ////////////////////////////////////////////
     // Phase.p4_Daytime
     ////////////////////////////////////////////
-    startP4_Daytime(){
+    async startP4_Daytime(){
         this.phase = Phase.p4_Daytime;
         this.dayNumber += 1;
         this.updateRoomsRW();
@@ -1586,9 +1642,8 @@ export default class GameState {
             color       : this.langTxt.sys.system_color,
         }]});
         this.daytimeStartTime = Date.now();
-        this.makeCoCallController();
-        this.makeCutTimeController();
-        this.makeDictatorController();
+        await this.makeCoCallController();
+        await this.makeDictatorController();
         this.voteNum     = 0;
         this.runoffNum   = 0;
         this.stopTimerRequest = false;
@@ -1596,107 +1651,55 @@ export default class GameState {
         this.httpGameState.updatePhase(format(this.langTxt.p4.phase_name, {n : this.dayNumber}));
         gameTimer(this.gameId, this, Phase.p4_Daytime, this.ruleSetting.day.alert_times, dummy_startP5Vote);
     }
-    makeCoCallController(){
-        this.reactControllers[ReactType.CO]        = Object.create(null);
-        this.reactControllers[ReactType.CallWhite] = Object.create(null);
-        this.reactControllers[ReactType.CallBlack] = Object.create(null);
-        let rolesText = "";
-        for(const r in this.defaultRoles) {
-            const role = r as Role
-            rolesText += this.emoText[role] + this.roleText[role] + "\n";
-        }
-        let playersText = "";
-        for(const uid in this.members){
-            playersText += this.members[uid].alpStr + " " + this.members[uid].nickname + "\n"
-        }
-
-        const coEmbed= new Discord.MessageEmbed({
-            title       : this.langTxt.p4.coming_out_sel_title,
-            // description : rolesText,
-            fields      : [
-                {inline : true, name:this.langTxt.p4.role_list,   value: rolesText},
-                {inline : true, name:this.langTxt.p4.member_list, value: playersText},
-            ],
-            color       : this.langTxt.sys.system_color,
-        });
-        const whiteEmbed= new Discord.MessageEmbed({
-            title       : this.langTxt.p4.call_white_sel_title,
-            //description : playersText,
-            color       : this.langTxt.team_color.Good,
-        });
-        const blackEmbed= new Discord.MessageEmbed({
-            title       : this.langTxt.p4.call_black_sel_title,
-            color       : this.langTxt.team_color.Evil,
-        });
-
-
-        for(const uid in this.members){
-            if(!this.members[uid].isLiving) continue;
-            const uch  = this.members[uid].uchannel;
-            const uch2 = this.members[uid].uchannel2;
-            if(uch  == null || uch2 == null) continue;
-            uch.send({embeds:[coEmbed]}).then(message => {
-                this.reactControllers[ReactType.CO][message.id] = message;
-                
-                // this.guild2.channels.fetch(uch2.id).then(c => {
-                //     if (c == null || c.type !== 'GUILD_TEXT') return;
-                //     c.messages.fetch(message.id).then(m => {
-                //     for(const r in this.defaultRoles){
-                //         m.react(this.langTxt.role_uni[r as Role]);
-                //     }
-                // })})
-                // const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
-                const m = message; // TODO: react by bot2
-                for(const r in this.defaultRoles){
-                    m.react(this.langTxt.role_uni[r as Role]);
-                }
-            })
-            uch.send({embeds:[whiteEmbed]}).then(message => {
-                this.reactControllers[ReactType.CallWhite][message.id] = message;
-                for(const uid in this.members){
-                    message.react(this.members[uid].alpStr)
-                }
-            })
-            uch.send({embeds:[blackEmbed]}).then(message => {
-                this.reactControllers[ReactType.CallBlack][message.id] = message;
-                // const m : Discord.Message = new Discord.Message(this.guild2.client, message.toJSON(), uch2);
-                const m = message; // TODO: react by bot2
-                for(const uid in this.members){
-                    m.react(this.members[uid].alpStr)
-                }
-                // this.guild2.channels.fetch(uch2.id).then(c => {
-                //     if (c == null || c.type !== 'GUILD_TEXT') return;
-                //     c.messages.fetch(message.id).then(m => {
-                //     for(const uid in this.members){
-                //         m.react(this.members[uid].alpStr)
-                //     }
-                // })})
-            })
-        }
-    }
-    makeCutTimeController(){
-        this.reactControllers[ReactType.CutTime] = Object.create(null);
+    async makeCoCallController(){
+        this.interactControllers[InteractType.CO_Call] = Object.create(null);
         this.cutTimeMember = Object.create(null);
 
-        const liveNum =  Object.keys(this.members).reduce((acc, value) => { return acc + (this.members[value].isLiving?1:0);}, 0);
-        const req = (this.ruleSetting.day.cut_time == "all" ?      liveNum
-                    :this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
-                    :assertUnreachable(this.ruleSetting.day.cut_time));
+        let CO_buttons    : Discord.MessageButton[] = [];
+        let White_buttons : Discord.MessageButton[] = [];
+        let Black_buttons : Discord.MessageButton[] = [];
 
-        const txt = format(this.langTxt.p4.cut_time_title, {req : req});
+        for(const r in this.defaultRoles) {
+            const role = r as Role
+            CO_buttons.push(Util.make_button(role, this.roleText[role], {style : "blue", emoji : this.langTxt.role_uni[role]}));
+        }
+        let liveNum = 0;
+        for(const uid in this.members){
+            White_buttons.push(Util.make_button("white_" + uid, this.members[uid].nickname, {style : "green"}));
+            Black_buttons.push(Util.make_button("black_" + uid, this.members[uid].nickname, {style : "black"}));
+            if (this.members[uid].isLiving) liveNum++;
+        }
+        const components = [
+            ...Util.arrange_buttons(CO_buttons   ),
+            ...Util.arrange_buttons(White_buttons),
+            ...Util.arrange_buttons(Black_buttons),
+            new Discord.MessageActionRow().addComponents(Util.make_button("cut_time", this.langTxt.p4.cut_time_label, {style : "red"}))
+        ];
+        const req 
+            = (this.ruleSetting.day.cut_time == "all" ?     liveNum
+            : this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
+            : assertUnreachable(this.ruleSetting.day.cut_time));
+        const txt = format(this.langTxt.p4.co_call_cuttime_desc, {req : req});
+
         for(const uid in this.members){
             if(!this.members[uid].isLiving) continue;
-            const uch  = this.members[uid].uchannel;
-            if(uch == null) continue;
-            uch.send(txt).then(message => {
-                this.reactControllers[ReactType.CutTime][message.id] = message;
-                message.react(this.langTxt.react.o);
-            })
+            const uch = this.members[uid].uchannel;
+            if (uch == null) continue;
+            const sent_message = await uch.send({
+                embeds: [new Discord.MessageEmbed({
+                    title       : this.langTxt.p4.co_call_cuttime_title,
+                    color       : this.langTxt.sys.system_color,
+                    description : txt,
+                })],
+                components: components
+            });
+            this.interactControllers[InteractType.CO_Call][sent_message.id] = sent_message;
         }
     }
-    makeDictatorController(){
+    async makeDictatorController(){
         if(this.defaultRoles[Role.Dictator] <= 0) return;
-        this.reactControllers[ReactType.Dictator] = Object.create(null);
+        this.interactControllers[InteractType.Dictator] = Object.create(null);
+
         this.dictatorVoteMode = "";
         for(const uid in this.members){
             if(!this.members[uid].isLiving) continue;
@@ -1709,10 +1712,12 @@ export default class GameState {
                 title       : this.langTxt.dictator.button_desc,
                 color       : this.langTxt.sys.killed_color,
             });
-            uch.send({embeds:[embed]}).then(message => {
-                this.reactControllers[ReactType.Dictator][message.id] = message;
-                message.react(this.langTxt.dictator.uni);
-            })
+            const components = [
+                new Discord.MessageActionRow().addComponents(Util.make_button("dictator", this.langTxt.dictator.uni, {style : "red"}))
+            ];
+
+            const sent_message = await uch.send({embeds:[embed], components:components});
+            this.interactControllers[InteractType.Dictator][sent_message.id] = sent_message;
         }
     }
     makeCoCallLogFields(){
@@ -1752,54 +1757,93 @@ export default class GameState {
         }
         return fields;
     }
-    coCallCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, type : ReactType.CO | ReactType.CallWhite | ReactType.CallBlack){
-        const uch = this.members[user.id].uchannel;
+    call_co_cuttime_CheckInteract(interaction : Discord.ButtonInteraction) {
+        const uid = interaction.user.id;
+        const uch = this.members[uid].uchannel;
         if(uch == null) return this.err();
-        let embed : Discord.MessageEmbed | null = null;
 
-        if(type == ReactType.CO) {
-            const roleName= Object.keys(this.defaultRoles).find(role => this.langTxt.role_uni[role as Role] == reaction.emoji.name) as Role | null;
-            if(roleName == null) return;
-            this.members[user.id].coRole     = roleName;
-            if(this.members[user.id].firstCallCoTime == null){
-                this.members[user.id].firstCallCoTime = Date.now();
+        if (interaction.customId == "cut_time") {
+            const isAdd = true; // TODO
+            const liveNum =  Object.keys(this.members).reduce((acc, value) => { return acc + (this.members[value].isLiving?1:0);}, 0);
+            const req = (this.ruleSetting.day.cut_time == "all" ?      liveNum
+                        :this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
+                        :assertUnreachable(this.ruleSetting.day.cut_time));
+            if(!isAdd){
+                delete this.cutTimeMember[uid];
+                const now = Object.keys(this.cutTimeMember).length;
+                const txt = format(this.langTxt.p4.cut_time_cancel, {now : now, req : req});
+                interaction.reply(txt);
+                this.channels.Living.send(txt);
+            } else {
+                this.cutTimeMember[uid] = 1;
+                const now = Object.keys(this.cutTimeMember).length;
+                const txt = format(this.langTxt.p4.cut_time_accept, {now : now, req : req});
+                interaction.reply(txt);
+                this.channels.Living.send(txt);
+                if(now >= req) {
+                    this.channels.Living.send(this.langTxt.p4.cut_time_approved);
+                    this.remTime = Math.min(12, this.remTime);
+                }
             }
+            return;
+        }
+
+        let embed : Discord.MessageEmbed | null = null;
+        const isWhiteInteract = interaction.customId.startsWith("white_");
+        if (isWhiteInteract || interaction.customId.startsWith("black_")) {
+            const tid = interaction.customId.substring(6);
+            if (!(tid in this.members)) return;
+
+            if(this.members[uid].firstCallCoTime == null){
+                this.members[uid].firstCallCoTime = Date.now();
+            }
+            const tname = this.members[tid].nickname
+
+            const newLog = this.members[uid].callLog.filter(p => p[0] != tid);
+            if (this.members[uid].callLog.find(p => p[0] == tid && p[1] == !isWhiteInteract) != null) { // same : cancel
+                embed = new Discord.MessageEmbed({
+                    author      : {name: this.members[uid].nickname, iconURL: this.members[uid].avatar},
+                    title       : format(isWhiteInteract ? this.langTxt.p4.call_white_cancel_title : this.langTxt.p4.call_black_cancel_title, {name : this.members[uid].nickname, trgt:tname}),
+                    thumbnail   : {url: this.members[tid].avatar},
+                    color       : isWhiteInteract ? this.langTxt.team_color.Good : this.langTxt.team_color.Evil,
+                });
+            } else {
+                newLog.push([tid, !isWhiteInteract]);
+                if(isWhiteInteract){
+                    embed = new Discord.MessageEmbed({
+                        author      : {name: this.members[uid].nickname, iconURL: this.members[uid].avatar},
+                        title       : format(this.langTxt.p4.call_white_open_title, {name : this.members[uid].nickname, trgt:tname}),
+                        thumbnail   : {url: this.members[tid].avatar},
+                        color       : this.langTxt.team_color.Good,
+                    });
+                } else {
+                    embed = new Discord.MessageEmbed({
+                        author      : {name: this.members[uid].nickname, iconURL: this.members[uid].avatar},
+                        title       : format(this.langTxt.p4.call_black_open_title, {name : this.members[uid].nickname, trgt:tname}),
+                        thumbnail   : {url: this.members[tid].avatar},
+                        color       : this.langTxt.team_color.Evil,
+                    });
+                }
+            }
+            this.members[uid].callLog = newLog;
+            this.streams.playSe(this.srvSetting.se.call);
+        } else { // CO
+            const roleName= Object.keys(this.defaultRoles).find(role => role == interaction.customId) as Role | null;
+            if(roleName == null) return;
+            if(this.members[uid].firstCallCoTime == null){
+                this.members[uid].firstCallCoTime = Date.now();
+            }
+            this.members[uid].coRole = roleName;
             embed = new Discord.MessageEmbed({
-                author      : {name: this.members[user.id].nickname, iconURL: this.members[user.id].avatar},
-                title       : format(this.langTxt.p4.coming_out_open_title, {name : this.members[user.id].nickname, role:this.langTxt.role[roleName]}),
+                author      : {name: this.members[uid].nickname, iconURL: this.members[uid].avatar},
+                title       : format(this.langTxt.p4.coming_out_open_title, {name : this.members[uid].nickname, role:this.langTxt.role[roleName]}),
                 thumbnail   : {url: this.langTxt.role_img[roleName]},
                 color       : this.langTxt.sys.system_color,
             });
             this.streams.playSe(this.srvSetting.se.co);
-        } else {
-            const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
-            if(tid == null) return;
-            if(this.members[user.id].firstCallCoTime == null){
-                this.members[user.id].firstCallCoTime = Date.now();
-            }
-            const tname = this.members[tid].nickname
-            const newLog = this.members[user.id].callLog.filter(p => p[0] != tid);
-            newLog.push([tid, type == ReactType.CallBlack]);
-            this.members[user.id].callLog = newLog;
-            if(type == ReactType.CallWhite){
-                embed = new Discord.MessageEmbed({
-                    author      : {name: this.members[user.id].nickname, iconURL: this.members[user.id].avatar},
-                    title       : format(this.langTxt.p4.call_white_open_title, {name : this.members[user.id].nickname, trgt:tname}),
-                    thumbnail   : {url: this.members[tid].avatar},
-                    color       : this.langTxt.team_color.Good,
-                });
-            }
-            if(type == ReactType.CallBlack){
-                embed = new Discord.MessageEmbed({
-                    author      : {name: this.members[user.id].nickname, iconURL: this.members[user.id].avatar},
-                    title       : format(this.langTxt.p4.call_black_open_title, {name : this.members[user.id].nickname, trgt:tname}),
-                    thumbnail   : {url: this.members[tid].avatar},
-                    color       : this.langTxt.team_color.Evil,
-                });
-            }
-            this.streams.playSe(this.srvSetting.se.call);
         }
         if(embed == null) return;
+        interaction.update({});
         const time = ((Date.now() - this.daytimeStartTime)/1000).toFixed(2);
         embed.description = format(this.langTxt.p4.call_time, {sec : time});
         embed.fields = this.makeCoCallLogFields();
@@ -1808,65 +1852,10 @@ export default class GameState {
         this.channels.GameLog.send({embeds:[embed]});
         this.httpGameState.updateMembers();
     }
-    coColorCallCancellCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, type : ReactType.CallWhite | ReactType.CallBlack){
-        const uch = this.members[user.id].uchannel;
-        if(uch == null) return this.err();
-        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
-        if(tid == null) return;
-        const tname = this.members[tid].nickname;
-        const time = ((Date.now() - this.daytimeStartTime)/1000).toFixed;
-
-        this.members[user.id].callLog.splice(this.members[user.id].callLog.findIndex(p => p[0] == tid), 1);
-        
-        const embed = new Discord.MessageEmbed({
-            author      : {name: this.members[user.id].nickname, iconURL: this.members[user.id].avatar},
-            title       : format(type == ReactType.CallWhite ? this.langTxt.p4.call_white_cancel_title : this.langTxt.p4.call_black_cancel_title, {name : this.members[user.id].nickname, trgt:tname}),
-            thumbnail   : {url: this.members[tid].avatar},
-            color       : type == ReactType.CallWhite ? this.langTxt.team_color.Good : this.langTxt.team_color.Evil,
-            description : format(this.langTxt.p4.call_time, {sec : time}),
-            fields      : this.makeCoCallLogFields()
-        });
-        
-        this.streams.playSe(this.srvSetting.se.call);
-
-        this.channels.Living.send({embeds:[embed]});
-
-        this.channels.GameLog.send({embeds:[embed]});
-
-        this.httpGameState.updateMembers();
-    }
-    cutTimeCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User, isAdd : boolean){
-        if(this.phase != Phase.p4_Daytime) return;
-        if(reaction.emoji.toString() != this.langTxt.react.o) return;
-
-        const liveNum =  Object.keys(this.members).reduce((acc, value) => { return acc + (this.members[value].isLiving?1:0);}, 0);
-        const req = (this.ruleSetting.day.cut_time == "all" ?      liveNum
-                    :this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
-                    :assertUnreachable(this.ruleSetting.day.cut_time));
-        if(!isAdd){
-            delete this.cutTimeMember[user.id];
-            const now = Object.keys(this.cutTimeMember).length;
-            const uch = this.members[user.id].uchannel;
-            const txt = format(this.langTxt.p4.cut_time_cancel, {now : now, req : req});
-            if(uch != null) uch.send(txt);
-            this.channels.Living.send(txt);
-        } else {
-            this.cutTimeMember[user.id] = 1;
-            const now = Object.keys(this.cutTimeMember).length;
-            const uch = this.members[user.id].uchannel;
-            const txt = format(this.langTxt.p4.cut_time_accept, {now : now, req : req});
-            if(uch != null) uch.send(txt);
-            this.channels.Living.send(txt);
-            if(now >= req) {
-                this.channels.Living.send(this.langTxt.p4.cut_time_approved);
-                this.remTime = Math.min(5, this.remTime);
-            }
-        }
-    }
-    dictatorCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
-        const uch  = this.members[user.id].uchannel;
+    async dictatorCheck(interaction : Discord.ButtonInteraction) {
+        const uch  = this.members[interaction.user.id].uchannel;
         if(uch == null) return;
-        this.members[user.id].roleCmdInvokeNum++;
+        this.members[interaction.user.id].roleCmdInvokeNum++;
         const embed= new Discord.MessageEmbed({
             author      : {name: this.langTxt.role.Dictator, iconURL: this.langTxt.role_img.Dictator},
             title       : this.langTxt.dictator.exercise,
@@ -1879,14 +1868,14 @@ export default class GameState {
             uch.send({embeds:[embed]});
         }
         this.channels.Living.send({embeds:[embed]});
-        this.dictatorVoteMode = user.id;
-        this.startP5_Vote();
+        this.dictatorVoteMode = interaction.user.id;
+        await this.startP5_Vote();
     }
 
     ////////////////////////////////////////////
     // Phase.p5_Vote
     ////////////////////////////////////////////
-    startP5_Vote(){
+    async startP5_Vote(){
         //! no use "this."
         if(this.voteNum === 0){
             this.channels.Living.send({embeds:[{
@@ -1894,11 +1883,8 @@ export default class GameState {
                 color       : this.langTxt.sys.system_color,
             }]});
         }
-        this.reactControllers[ReactType.CO]        = Object.create(null);
-        this.reactControllers[ReactType.CallWhite] = Object.create(null);
-        this.reactControllers[ReactType.CallBlack] = Object.create(null);
-        this.reactControllers[ReactType.CutTime]   = Object.create(null);
-        this.reactControllers[ReactType.Dictator]  = Object.create(null);
+        this.interactControllers[InteractType.CO_Call] = Object.create(null);
+        this.interactControllers[InteractType.Dictator] = Object.create(null);
         this.cutTimeMember = Object.create(null);
 
         if(this.phase != Phase.p5_Vote){
@@ -1907,41 +1893,46 @@ export default class GameState {
         this.phase = Phase.p5_Vote;
         this.httpGameState.updatePhase(format(this.langTxt.p5.phase_name, {n : this.dayNumber}));
         this.updateRoomsRW();
+
         for(const uid in this.members){
             if(!this.members[uid].isLiving) continue;
             const uch = this.members[uid].uchannel;
             if(uch == null) return this.err();
             this.members[uid].voteTo = "";
             if(this.dictatorVoteMode != "" && this.dictatorVoteMode != uid) continue;
-            let list = "";
+            
             for(const tid in this.members){
                 if(tid == uid) continue;
                 if(!this.members[tid].isLiving) continue;
                 this.members[uid].validVoteID.push(tid);
-                list += this.members[tid].alpStr + " " + this.members[tid].nickname + "\n";
             }
+        }
+        {
             const ti = (this.voteNum == 0 ? "" : format(this.langTxt.p5.revote_times, {m : this.voteNum+1}));
+
+            let buttons : Discord.MessageButton[] = [];
+            for(const tid in this.members){
+                if(!this.members[tid].isLiving) continue;
+                buttons.push(Util.make_button(tid, this.members[tid].nickname, {style : "black"}));
+            }
+            const components = Util.arrange_buttons(buttons);
             const embed = new Discord.MessageEmbed({
                 title       : format(this.langTxt.p5.vote_title, {n : this.dayNumber, time : ti}),
-                // description : format(this.langTxt.p5.vote_desc, {user : getUserMentionStrFromId(this.members[uid].user.id)}),
                 color       : this.langTxt.sys.system_color,
-                fields      : [{name:this.langTxt.p5.vote_list, value: list}],
             });
-            uch.send({embeds: [embed]}).then(message => {
-                this.reactControllers[ReactType.Vote][message.id] = message;
-                for(const tid of this.members[uid].validVoteID){
-                    message.react(this.members[tid].alpStr);
-                }
+            const sent_message = await this.channels.Living.send({
+                embeds: [embed],
+                components: components
             });
-            uch.send(format(this.langTxt.p5.vote_desc, {user : getUserMentionStrFromId(this.members[uid].user.id)}));
+            this.interactControllers[InteractType.Vote][sent_message.id] = sent_message;
         }
         this.remTime = this.ruleSetting.vote.length;
         this.stopTimerRequest = false;
         gameTimer(this.gameId, this, Phase.p5_Vote, this.ruleSetting.vote.alert_times, dummy_voteTimeup);
     }
     
-    voteTimeup(){
-        this.reactControllers[ReactType.Vote] = Object.create(null);
+    async voteTimeup(){
+        this.interactControllers[InteractType.Vote] = Object.create(null);
     
         let cnt : {[key: string]: number} = Object.create(null);
         for(const uid in this.members){ 
@@ -2010,10 +2001,9 @@ export default class GameState {
                 footer : {text: format(this.langTxt.p5.living_num, {n : living_num-1})},
             });
             this.channels.Living.send({embeds:[embed]});
-            this.broadcastLivingUserChannel(embed);
             this.channels.GameLog.send({embeds:[embed]});
             this.lastExecuted = eid;
-            this.kickMember(eid, KickReason.Vote);
+            await this.kickMember(eid, KickReason.Vote);
         }else if(isLastVote) {
             const embed = new Discord.MessageEmbed({
                 title: format(this.langTxt.p5.final_even, {n: this.dayNumber, time:ti}),
@@ -2022,10 +2012,9 @@ export default class GameState {
                 footer : {text: format(this.langTxt.p5.living_num, {n : living_num})},
             });
             this.channels.Living.send({embeds:[embed]});
-            this.broadcastLivingUserChannel(embed);
             this.channels.GameLog.send({embeds:[embed]});
             this.lastExecuted = "";
-            this.startP6_Night();
+            await this.startP6_Night();
         } else {
             const embed = new Discord.MessageEmbed({
                 title: format(this.langTxt.p5.revote, {n: this.dayNumber, time:ti}),
@@ -2033,66 +2022,85 @@ export default class GameState {
                 color : this.langTxt.sys.system_color,
             });
             this.channels.Living.send({embeds:[embed]});
-            this.broadcastLivingUserChannel(embed);
             this.channels.GameLog.send({embeds:[embed]});
             this.voteNum += 1;
-            this.startP5_Vote();
+            await this.startP5_Vote();
         }
     }
 
     createVoteEmbed(from : Discord.MessageEmbedAuthor, text : string, uid : string){
-        return {embeds:[new Discord.MessageEmbed({
+        return new Discord.MessageEmbed({
             author : from,
             title : format(text, {user: this.members[uid].nickname}),
             thumbnail : {url: this.members[uid].avatar},
             color: this.langTxt.sys.system_color,
-        })]};
+        });
     }
-
-    voteCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User){
-        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+    
+    voteCheckInteract(interaction : Discord.ButtonInteraction){
+        const uid = interaction.user.id;
+        const tid = interaction.customId;
         if(tid == null) return;
-        const uch = this.members[user.id].uchannel;
+        const uch = this.members[uid].uchannel;
         if(uch == null) return this.err();
-
 
         const realtime = 
             this.ruleSetting.vote.place == 'realtime_open' ||
             this.ruleSetting.vote.place == 'realtime_anonym' ||
             this.ruleSetting.vote.place == 'realtime_anonym_open';
 
-        if(this.members[user.id].validVoteID.find(i => i == tid)){
-            const change = this.members[user.id].voteTo != "";
-            const author : Discord.MessageEmbedAuthor = {name : this.members[user.id].nickname, iconURL : this.members[user.id].avatar};
-            if(realtime && change){
-                uch.send(this.createVoteEmbed(author, this.langTxt.p5.no_revoting, this.members[user.id].voteTo));
-                return;
+        if(this.members[uid].validVoteID.find(i => i == tid) == null) {
+            interaction.reply( {content : this.langTxt.p5.no_selfvote, ephemeral : true});
+            return;
+        }
+        const change = this.members[uid].voteTo != "";
+        const author : Discord.MessageEmbedAuthor = {name : this.members[uid].nickname, iconURL : this.members[uid].avatar};
+        if(realtime && change){
+            interaction.reply({
+                embeds:[this.createVoteEmbed(author, this.langTxt.p5.no_revoting, this.members[uid].voteTo)],
+                ephemeral: true
+            });
+            return;
+        }
+        const tName = this.members[tid].nickname;
+        if(this.members[uid].voteTo == tid){
+            interaction.reply({
+                embeds:[this.createVoteEmbed(author, this.langTxt.p5.already_vote, tid)],
+                ephemeral: true
+            });
+            return;
+        }
+        this.members[uid].voteTo = tid;
+        if(!realtime){
+            if(change){
+                interaction.reply({
+                    embeds:[this.createVoteEmbed(author, this.langTxt.p5.vote_change, tid)],
+                    ephemeral: true
+                });
+            }else{
+                interaction.reply({
+                    embeds:[this.createVoteEmbed(author, this.langTxt.p5.vote_accept, tid)],
+                    ephemeral: true
+                });
             }
-            const tName = this.members[tid].nickname;
-            if(this.members[user.id].voteTo == tid){
-                uch.send(this.createVoteEmbed(author, this.langTxt.p5.already_vote, tid));
-                return;
-            }
-            this.members[user.id].voteTo = tid;
-            if(!realtime){
-                if(change){
-                    uch.send(this.createVoteEmbed(author, this.langTxt.p5.vote_change, tid));
-                }else{
-                    uch.send(this.createVoteEmbed(author, this.langTxt.p5.vote_accept, tid));
-                }
-            } else if(this.ruleSetting.vote.place == 'realtime_open') {
-                uch.send(this.createVoteEmbed(author, this.langTxt.p5.vote_accept_1, tid));
-                this.channels.Living.send(format(this.langTxt.p5.vote_format, {to : tName, from : this.members[user.id].nickname}));
-            } else {
-                uch.send(this.createVoteEmbed(author, this.langTxt.p5.vote_accept_1, tid));
-                this.channels.Living.send(format(this.langTxt.p5.vote_anonym_format, {to : tName}));
-            }
+        } else if(this.ruleSetting.vote.place == 'realtime_open') {
+            interaction.reply({
+                embeds:[this.createVoteEmbed(author, this.langTxt.p5.vote_accept_1, tid)],
+                ephemeral: false
+            });
+            this.channels.Living.send(format(this.langTxt.p5.vote_format, {to : tName, from : this.members[uid].nickname}));
+        } else {
+            interaction.reply({
+                embeds:[this.createVoteEmbed(author, this.langTxt.p5.vote_accept_1, tid)],
+                ephemeral: false
+            });
+            this.channels.Living.send(format(this.langTxt.p5.vote_anonym_format, {to : tName}));
         }
     }
     ////////////////////////////////////////////
     // Phase.p6_Night
     ////////////////////////////////////////////
-    startP6_Night(){
+    async startP6_Night(){
         this.phase = Phase.p6_Night;
         this.remTime = this.ruleSetting.night.length;
         this.updateRoomsRW();
@@ -2105,6 +2113,7 @@ export default class GameState {
             color       : this.langTxt.sys.system_color,
         })]};
         this.channels.Living.send(nightComingEmbed);
+        this.cutTimeMember = Object.create(null);
         for(let my_id in this.members){
             this.members[my_id].voteTo = "";
             if(!this.members[my_id].isLiving) continue;
@@ -2117,43 +2126,41 @@ export default class GameState {
                 this.sendFP_Result(my_id, uch, this.lastExecuted, this.langTxt.priest, this.langTxt.role_img.Priest);
             }else if(role == Role.Knight){
                 uch.send(getUserMentionStrFromId(my_id) + nightComingMessage);
-                this.reactControllers[ReactType.Knight] = Object.create(null);
+                this.interactControllers[InteractType.Knight] = Object.create(null);
                 this.members[my_id].validVoteID = [];
-                let list = "";
                 let lastGuard = "";
                 if(!this.ruleSetting.continuous_guard && this.members[my_id].actionLog.length > 0){
                     lastGuard = this.members[my_id].actionLog.slice(-1)[0][0];
                 }
+                let buttons    : Discord.MessageButton[] = [];
                 for(const tid in this.members){
                     if(tid == my_id) continue;
                     if(tid == lastGuard) continue;
                     if(!this.members[tid].isLiving) continue;
                     this.members[my_id].validVoteID.push(tid);
-                    list += this.members[tid].alpStr + " " + this.members[tid].nickname + "\n";
+                    buttons.push(Util.make_button(tid, this.members[tid].nickname, {style : "blue"}));
                 }
                 const embed = new Discord.MessageEmbed({
                     author      : {name: this.langTxt.role[role], iconURL: this.langTxt.role_img[role]},
                     title       : this.langTxt.knight.title,
                     color       : this.langTxt.team_color[getDefaultTeams(role)],
-                    fields      : [{name:this.langTxt.knight.list, value: list}],
                 });
-                uch.send({embeds: [embed]}).then(message => {
-                    this.reactControllers[ReactType.Knight][message.id] = message;
-                    for(const tid of this.members[my_id].validVoteID){
-                        message.react(this.members[tid].alpStr);
-                    };
-                });
+                const sent_message = await uch.send({
+                    embeds: [embed],
+                    components: Util.arrange_buttons(buttons)
+                })
+                this.interactControllers[InteractType.Knight][sent_message.id] = sent_message;
             } else if(role == Role.Seer){
                 uch.send(getUserMentionStrFromId(my_id) + nightComingMessage);
-                this.reactControllers[ReactType.Seer] = Object.create(null);
+                this.interactControllers[InteractType.Seer] = Object.create(null);
                 this.members[my_id].validVoteID = [];
-                let list = "";
+                let buttons    : Discord.MessageButton[] = [];
                 for(const tid in this.members){
                     if(tid == my_id) continue;
                     if(!this.members[tid].isLiving) continue;
                     if(this.members[my_id].actionLog.find(p => p[0] == tid) != null) continue;
                     this.members[my_id].validVoteID.push(tid);
-                    list += this.members[tid].alpStr + " " + this.members[tid].nickname + "\n";
+                    buttons.push(Util.make_button(tid, this.members[tid].nickname, {style : "blue"}));
                 }
                 if(this.members[my_id].validVoteID.length == 0){
                     this.sendFP_Result(my_id, uch, null, this.langTxt.fortune, this.langTxt.role_img.Seer);
@@ -2162,51 +2169,52 @@ export default class GameState {
                         author      : {name: this.langTxt.role[role], iconURL: this.langTxt.role_img[role]},
                         title       : this.langTxt.fortune.title,
                         color       : this.langTxt.team_color[getDefaultTeams(role)],
-                        fields      : [{name:this.langTxt.fortune.list, value: list}],
                     });
                     if(this.members[my_id].validVoteID.length == 1){
                         uch.send({embeds: [embed]});
                         this.sendFP_Result(my_id, uch, this.members[my_id].validVoteID[0], this.langTxt.fortune, this.langTxt.role_img.Seer);
                         this.members[my_id].validVoteID = [];
                     }else{
-                        uch.send({embeds: [embed]}).then(message => {
-                            this.reactControllers[ReactType.Seer][message.id] = message;
-                            for(const tid of this.members[my_id].validVoteID){
-                                message.react(this.members[tid].alpStr);
-                            }
-                        });
+                        const sent_message = await uch.send({
+                            embeds: [embed],
+                            components: Util.arrange_buttons(buttons)
+                        })
+                        this.interactControllers[InteractType.Seer][sent_message.id] = sent_message;
                     }
                 }
             } else if(this.members[my_id].allowWolfRoom){
             } else {
                 uch.send(nightComingEmbed);
             }
+            {
+                const component = new Discord.MessageActionRow().addComponents(Util.make_button("cut_time", this.langTxt.p4.cut_time_label, {style : "red"}));
+                const sent_message = await uch.send({content: this.langTxt.sys.cuttime_desc, components: [component]});
+                this.interactControllers[InteractType.CutTime][sent_message.id] = sent_message;
+            }
         }
         { // for Werewolf
-            this.reactControllers[ReactType.Werewolf] = Object.create(null);
+            this.interactControllers[InteractType.Werewolf] = Object.create(null);
             const role = Role.Werewolf;
             this.wolfValidTo   = [];
             this.wolfValidFrom = [];
-            let list = "";
             this.wolfVote = "";
+            let buttons    : Discord.MessageButton[] = [];
             for(const tid in this.members){
                 if(!this.members[tid].isLiving) continue;
                 if(this.members[tid].role == Role.Werewolf) continue;
                 this.wolfValidTo.push(tid);
-                list += this.members[tid].alpStr + " " + this.members[tid].nickname + "\n";
+                buttons.push(Util.make_button(tid, this.members[tid].nickname, {style : "blue"}));
             }
             const embed = new Discord.MessageEmbed({
                 author      : {name: this.langTxt.role[role], iconURL: this.langTxt.role_img[role]},
                 title       : this.langTxt.werewolf.title,
                 color       : this.langTxt.team_color[getDefaultTeams(role)],
-                fields      : [{name:this.langTxt.werewolf.list, value: list}],
             });
-            this.channels.Werewolf.send({embeds: [embed]}).then(message => {
-                this.reactControllers[ReactType.Werewolf][message.id] = message;
-                for(const tid of this.wolfValidTo){
-                    message.react(this.members[tid].alpStr);
-                }
+            const sent_message = await this.channels.Werewolf.send({
+                embeds: [embed],
+                components: Util.arrange_buttons(buttons)
             });
+            this.interactControllers[InteractType.Werewolf][sent_message.id] = sent_message;
             let werewolfsMention = "";
             for(const tid in this.members){
                 if(!this.members[tid].isLiving) continue;
@@ -2224,66 +2232,94 @@ export default class GameState {
         this.stopTimerRequest = false;
         gameTimer(this.gameId, this, Phase.p6_Night, this.ruleSetting.night.alert_times, dummy_nightFinish);
     }
-    nightKnightCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
-        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+    nightKnightCheck(interaction : Discord.ButtonInteraction) {
+        const tid = Object.keys(this.members).find(mid => mid == interaction.customId);
         if(tid == null) return;
-        const uch = this.members[user.id].uchannel;
+        const uid = interaction.user.id;
+        const uch = this.members[uid].uchannel;
         if(uch == null) return this.err();
-        if(this.members[user.id].validVoteID.find(i => i == tid)){
-            const change = this.members[user.id].voteTo != "";
+        if(this.members[uid].validVoteID.find(i => i == tid)){
+            const change = this.members[uid].voteTo != "";
             const role = Role.Knight;
             const author : Discord.MessageEmbedAuthor = {name: this.langTxt.role[role], iconURL: this.langTxt.role_img[role]};
-            if(this.members[user.id].voteTo == tid){
-                uch.send(this.createVoteEmbed(author, this.langTxt.knight.already, tid));
+            if(this.members[uid].voteTo == tid){
+                interaction.reply({embeds:[this.createVoteEmbed(author, this.langTxt.knight.already, tid)]});
                 return;
             }
-            this.members[user.id].voteTo = tid;
+            this.members[uid].voteTo = tid;
             if(change){
-                uch.send(this.createVoteEmbed(author, this.langTxt.knight.change, tid));
+                interaction.reply({embeds:[this.createVoteEmbed(author, this.langTxt.knight.change, tid)]});
             }else{
-                uch.send(this.createVoteEmbed(author, this.langTxt.knight.accept, tid));
+                interaction.reply({embeds:[this.createVoteEmbed(author, this.langTxt.knight.accept, tid)]});
             }
         }
     }
-    nightSeerCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
-        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+    nightSeerCheck(interaction : Discord.ButtonInteraction) {
+        const tid = Object.keys(this.members).find(mid => mid == interaction.customId);
         if(tid == null) return;
-        const uch = this.members[user.id].uchannel;
+        const uid = interaction.user.id;
+        const uch = this.members[uid].uchannel;
         if(uch == null) return this.err();
 
-        if(this.members[user.id].voteTo != "") return;
-        if(this.members[user.id].validVoteID.find(i => i == tid)){
-            this.members[user.id].voteTo = tid;
-            this.members[user.id].validVoteID = [];
-            this.sendFP_Result(user.id, uch, tid, this.langTxt.fortune, this.langTxt.role_img.Seer);
+        if(this.members[uid].voteTo != "") return;
+        if(this.members[uid].validVoteID.find(i => i == tid)){
+            this.members[uid].voteTo = tid;
+            this.members[uid].validVoteID = [];
+            interaction.update({});
+            this.sendFP_Result(uid, uch, tid, this.langTxt.fortune, this.langTxt.role_img.Seer);
         }
     }
-    nightWerewolfCheck(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User) {
-        if(this.wolfValidFrom.find(i => i == user.id) == null) return;
-        const tid = Object.keys(this.members).find(mid => this.members[mid].alpStr == reaction.emoji.name);
+    nightWerewolfCheck(interaction : Discord.ButtonInteraction) {
+        const uid = interaction.user.id;
+        if(this.wolfValidFrom.find(i => i == interaction.user.id) == null) return;
+        const tid = Object.keys(this.members).find(mid => mid == interaction.customId);
         if(tid == null) return;
 
         if(this.wolfValidTo.find(id => id == tid) == null) return;
-        if(reaction.message.channel.id != this.channels.Werewolf.id) return;
-        {
-            const change = this.wolfVote != "";
-            const author : Discord.MessageEmbedAuthor = {name: this.members[user.id].nickname, iconURL: this.langTxt.role_img[Role.Werewolf]};
-            if(this.wolfVote == tid){
-                this.channels.Werewolf.send(this.createVoteEmbed(author, this.langTxt.werewolf.already, tid));
-                return;
-            }
-            this.wolfVote = tid;
-            if(change){
-                this.channels.Werewolf.send(this.createVoteEmbed(author, this.langTxt.werewolf.change, tid));
-            }else{
-                this.channels.Werewolf.send(this.createVoteEmbed(author, this.langTxt.werewolf.accept, tid));
+        const change = this.wolfVote != "";
+        const author : Discord.MessageEmbedAuthor = {name: this.members[interaction.user.id].nickname, iconURL: this.langTxt.role_img[Role.Werewolf]};
+        if(this.wolfVote == tid){
+            interaction.reply({embeds : [this.createVoteEmbed(author, this.langTxt.werewolf.already, tid)]});
+            return;
+        }
+        this.wolfVote = tid;
+        if(change){
+            interaction.reply({embeds:[this.createVoteEmbed(author, this.langTxt.werewolf.change, tid)]});
+        }else{
+            interaction.reply({embeds:[this.createVoteEmbed(author, this.langTxt.werewolf.accept, tid)]});
+        }
+    }
+    cutTimeCheck(interaction : Discord.ButtonInteraction) {
+        const uid = interaction.user.id;
+        const uch = this.members[uid].uchannel;
+        if(uch == null) return this.err();
+        if (interaction.customId != "cut_time") return;
+        const isAdd = true; // TODO
+        const liveNum =  Object.keys(this.members).reduce((acc, value) => { return acc + (this.members[value].isLiving?1:0);}, 0);
+        const req = liveNum;
+        if(!isAdd){
+            delete this.cutTimeMember[uid];
+            const now = Object.keys(this.cutTimeMember).length;
+            const txt = format(this.langTxt.p4.cut_time_cancel, {now : now, req : req});
+            interaction.reply(txt);
+            this.channels.Living.send(txt);
+        } else {
+            this.cutTimeMember[uid] = 1;
+            const now = Object.keys(this.cutTimeMember).length;
+            const txt = format(this.langTxt.p4.cut_time_accept, {now : now, req : req});
+            interaction.reply(txt);
+            this.channels.Living.send(txt);
+            if(now >= req) {
+                this.channels.Living.send(this.langTxt.p4.cut_time_approved);
+                this.remTime = Math.min(12, this.remTime);
             }
         }
     }
-    nightFinish(){
-        this.reactControllers[ReactType.Knight]   = Object.create(null);
-        this.reactControllers[ReactType.Seer]     = Object.create(null);
-        this.reactControllers[ReactType.Werewolf] = Object.create(null);
+    async nightFinish(){
+        this.interactControllers[InteractType.Knight]   = Object.create(null);
+        this.interactControllers[InteractType.Seer]     = Object.create(null);
+        this.interactControllers[InteractType.Werewolf] = Object.create(null);
+        this.interactControllers[InteractType.CutTime] = Object.create(null);
 
         let Guarded : string[] = [];
         for(const uid in this.members){
@@ -2310,10 +2346,10 @@ export default class GameState {
         this.wolfLog.push(this.wolfVote);
         if(Guarded.find(id => id == this.wolfVote) == null){
             this.killNext.push([this.wolfVote, 0]);
-            this.kickMember(this.wolfVote, KickReason.Werewolf);
+            await this.kickMember(this.wolfVote, KickReason.Werewolf);
             if(this.phase != Phase.p6_Night) return;
         }
-        this.startP4_Daytime();
+        await this.startP4_Daytime();
     }
 
 
@@ -2514,102 +2550,82 @@ export default class GameState {
             this.sendWantNums(this.channels.Living);
         }
     }
-
-    reactCommandRemove(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User){
-        const uid = Object.keys(this.members).find(k => k == user.id);
-        if(uid == null) return;
-        if(!this.members[uid].isLiving) return;
-        const uch = this.members[uid].uchannel;
-        if(uch == null) return;
-
-        for(let i = 0; i < this.reactControllers.length; i++) {
-            if(Object.keys(this.reactControllers[i]).find(v => v == reaction.message.id) == null) continue;
-            if(i == ReactType.CutTime){
-                if(this.phase == Phase.p4_Daytime) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.cutTimeCheck(reaction, user, false);
-                }
-            }
-            if(i == ReactType.WishRole || i == ReactType.NonWishRole){
-                if(this.phase == Phase.p2_Preparation) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.wishRoleCheck(reaction, user, false, i == ReactType.WishRole);
-                }
-            }
-            if(i == ReactType.CallWhite || i == ReactType.CallBlack){
-                if(this.phase == Phase.p4_Daytime) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.coColorCallCancellCheck(reaction, user, i);
-                }
-            }
+    async interactCommand(interaction : Discord.ButtonInteraction){
+        if(this.phase == Phase.p1_Wanted){
+            const mes_id = Object.keys(this.interactControllers[InteractType.Accept]).find(v => v == interaction.message.id);
+            if(mes_id == null) return;
+            const mes = this.interactControllers[InteractType.Accept][mes_id];
+            await this.joinMemberInteract(interaction, mes);
+            return;
         }
-    }
-    reactCommand(reaction : Discord.MessageReaction | Discord.PartialMessageReaction, user : Discord.User){
-        const uid = Object.keys(this.members).find(k => k == user.id);
+
+        const uid = Object.keys(this.members).find(k => k == interaction.user.id);
         if(uid == null) return;
         if(!this.members[uid].isLiving) return;
         const uch = this.members[uid].uchannel;
         if(uch == null) return;
 
-        for(let i = 0; i < this.reactControllers.length; i++) {
-            if(Object.keys(this.reactControllers[i]).find(v => v == reaction.message.id) == null) continue;
-            if(i == ReactType.Accept){
+        for(let i = 0; i < this.interactControllers.length; i++) {
+            if(Object.keys(this.interactControllers[i]).find(v => v == interaction.message.id) == null) continue;
+            if(i == InteractType.Accept){
                 if(this.phase == Phase.p2_Preparation){
-                    if(reaction.emoji.name != this.langTxt.react.o) return;
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.preparationAccept(reaction.message, user);
+                    if(interaction.channelId != uch.id) return;
+                    this.preparationAccept(uid, interaction);
                     return;
                 }
-                return;
             }
-            if(i == ReactType.Vote){
+            if(i == InteractType.WishRole){
+                if(this.phase == Phase.p2_Preparation) {
+                    if(interaction.channelId != uch.id) return;
+                    this.wishRoleCheck(interaction);
+                }
+            }
+            if(i == InteractType.Vote){
                 if(this.phase == Phase.p5_Vote){
                     if(this.members[uid].validVoteID.length == 0) return;
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.voteCheck(reaction, user);
+                    this.voteCheckInteract(interaction);
                     return;
                 }
                 return;
             }
-            if(i == ReactType.Knight || i == ReactType.Seer){
+            if(i == InteractType.CO_Call){
+                if(this.phase == Phase.p4_Daytime){
+                    if(interaction.channelId != uch.id) return;
+                    this.call_co_cuttime_CheckInteract(interaction);
+                    return;
+                }
+                return;
+            }
+            if(i == InteractType.Knight){
                 if(this.phase == Phase.p6_Night) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    if(i == ReactType.Knight){
-                        this.nightKnightCheck(reaction, user);
-                    } else {
-                        this.nightSeerCheck(reaction, user);
-                    }
+                    if(interaction.channelId != uch.id) return;
+                    this.nightKnightCheck(interaction);
                     return;
                 }
             }
-            if(i == ReactType.Werewolf){
+            if(i == InteractType.Seer){
                 if(this.phase == Phase.p6_Night) {
-                    if(reaction.message.channel.id != this.channels.Werewolf.id) return;
-                    this.nightWerewolfCheck(reaction, user);
+                    if(interaction.channelId != uch.id) return;
+                    this.nightSeerCheck(interaction);
+                    return;
                 }
             }
-            if(i == ReactType.CO || i == ReactType.CallWhite || i == ReactType.CallBlack){
+            if(i == InteractType.Werewolf){
+                if(this.phase == Phase.p6_Night) {
+                    if(interaction.channelId != this.channels.Werewolf.id) return;
+                    this.nightWerewolfCheck(interaction);
+                }
+            }
+            if(i == InteractType.CutTime){
+                if(this.phase == Phase.p6_Night) {
+                    if(interaction.channelId != uch.id) return;
+                    await this.cutTimeCheck(interaction);
+                }
+            }
+            if(i == InteractType.Dictator){
                 if(this.phase == Phase.p4_Daytime) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.coCallCheck(reaction, user, i);
-                }
-            }
-            if(i == ReactType.CutTime){
-                if(this.phase == Phase.p4_Daytime) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.cutTimeCheck(reaction, user, true);
-                }
-            }
-            if(i == ReactType.WishRole || i == ReactType.NonWishRole){
-                if(this.phase == Phase.p2_Preparation) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.wishRoleCheck(reaction, user, true, i == ReactType.WishRole);
-                }
-            }
-            if(i == ReactType.Dictator){
-                if(this.phase == Phase.p4_Daytime) {
-                    if(reaction.message.channel.id != uch.id) return;
-                    this.dictatorCheck(reaction, user);
+                    if(interaction.channelId != uch.id) return;
+                    await this.dictatorCheck(interaction);
                 }
             }
         }
@@ -2623,7 +2639,7 @@ export default class GameState {
         const isGM        = isDeveloper || (message.author.id in this.GM);
 
         if(isThisCommand(message.content, this.langTxt.p7.cmd_continue) >= 0){
-            this.resetGame();
+            await this.resetGame();
             return;
         }
 
@@ -2679,9 +2695,16 @@ export default class GameState {
             if(isThisCommand(message.content, this.langTxt.p0.cmd_start) >= 0){
                 this.phase = Phase.p1_Wanted;
                 this.GM[message.author.id] = message.member;
-                this.channels.Living.send(this.langTxt.p0.start_recruiting);
                 this.sendWantNums(this.channels.Living);
+                
+                const join_button = Util.make_button("join", this.langTxt.p1.cmd_join[0], {style : "green", emoji: this.langTxt.role_uni.Werewolf});
+                const sent_message = await this.channels.Living.send({
+                    content: this.langTxt.p0.start_recruiting,
+                    components: [ new Discord.MessageActionRow().addComponents(join_button) ]
+                });
+                this.interactControllers[InteractType.Accept][this.channels.Living.id] = sent_message;
                 this.httpGameState.updatePhase(this.langTxt.p1.phase_name);
+                this.updateWantedEmb(null);
                 return;
             }
             return;
@@ -2732,7 +2755,7 @@ export default class GameState {
             if(Object.keys(this.members).find(k => k == message.author.id) != null){
                 const uch = this.members[message.author.id].uchannel;
                 if(uch != null && message.channel.id == uch.id){
-                    this.preparationAccept(message, message.author);
+                    this.preparationAccept(message.author.id, null);
                 }
             }
             if(message.channel.id == this.channels.Living.id){
@@ -2809,28 +2832,28 @@ function gameTimer(gid : number, obj : GameState, tPhase : Phase, alert_times : 
 ////////////////////////////////////////////
 
 
-function dummy_gamePreparation2(gid : number, obj : GameState){
+async function dummy_gamePreparation2(gid : number, obj : GameState){
     if(gid != obj.gameId) return;
-    obj.gamePreparation2();
+    await obj.gamePreparation2();
 }
 
-function dummy_startP4Daytime(gid : number, obj : GameState){
+async function dummy_startP4Daytime(gid : number, obj : GameState){
     if(gid != obj.gameId) return;
-    obj.startP4_Daytime();
+    await obj.startP4_Daytime();
 }
 
-function dummy_startP5Vote(gid : number, obj : GameState){
+async function dummy_startP5Vote(gid : number, obj : GameState){
     if(gid != obj.gameId) return;
-    obj.startP5_Vote();
+    await obj.startP5_Vote();
 }
-function dummy_voteTimeup(gid : number, obj : GameState){
+async function dummy_voteTimeup(gid : number, obj : GameState){
     if(gid != obj.gameId) return;
     obj.voteTimeup();
 }
-function dummy_nightFinish(gid : number, obj : GameState){
-    obj.nightFinish();
+async function dummy_nightFinish(gid : number, obj : GameState){
+    await obj.nightFinish();
 }
 
-function dummy_gameEndFinish(gid : number, obj : GameState){
+async function dummy_gameEndFinish(gid : number, obj : GameState){
     obj.gameEndFinish();
 }

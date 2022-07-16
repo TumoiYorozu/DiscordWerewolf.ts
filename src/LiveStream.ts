@@ -325,6 +325,10 @@ export default class LiveStream {
         mixer.addInput(this.bgmInput2);
         this.liveMixer.pipe(this.bgmInput2);
 
+        conn1.on("error", e => { console.error("conn1 Error", e); });
+        player1.on("error", e => { console.error("player1 Error", e); });
+        this.liveMixer.on("error", e => { console.error("liveMixer Error", e); });
+
         conn1.receiver.speaking.on("start", (userId) => {
             // console.log(  `${userId} start`  );
             this.httpGameState.updateMemberSpeaking(userId);
