@@ -1205,32 +1205,40 @@ export default class GameState {
                     if(this.defaultRoles[r] <= 0) continue;
                     this.members[uid].wishRole[r]    = 3;
                 }
-                const components = this.makeWishRoleBottons(uid);
                 const uch = this.members[uid].uchannel;
                 if (uch  == null) continue;
-                const sent_message = await uch.send({embeds: [embed], components : components});
-                this.interactControllers[InteractType.WishRole][sent_message.id] = sent_message;
+
+                const buttons_arr : Discord.MessageActionRow[] = [];
+                for(const r in this.defaultRoles){
+                    buttons_arr.push(this.makeWishRoleButtons(uid, r as Role));
+                }
+                const components_arr = Util.arrange_components(buttons_arr);
+                for (let i = 0; i < components_arr.length; ++i) {
+                    let sent_message;
+                    if (i == 0) {
+                        sent_message = await uch.send({embeds: [embed], components : components_arr[i]});
+                    } else {
+                        sent_message = await uch.send({components : components_arr[i]});
+                    }
+                    this.interactControllers[InteractType.WishRole][sent_message.id] = sent_message;
+                }
             }
             this.remTime = this.ruleSetting.wish_role_time;
             gameTimer(this.gameId, this, Phase.p2_Preparation, [], dummy_gamePreparation2);
         }
     }
-    makeWishRoleBottons (uid : string) {
-        const components : Discord.MessageActionRow[] = [];
-        for(const r in this.defaultRoles){
-            const col = new Discord.MessageActionRow();
-            const runi = this.langTxt.role_uni[r as Role];
-            const now = this.members[uid].wishRole[r];
-            for(let i = 1; i <= 5; ++i) {
-                if (i == now) {
-                    col.addComponents(Util.make_button(i + "_" + r, this.langTxt.role[r as Role] + runi, {style : "green", emoji : this.langTxt.react.num[i]}));
-                } else {
-                    col.addComponents(Util.make_button(i + "_" + r, runi, {style : "black", emoji : this.langTxt.react.num[i]}));
-                }
+    makeWishRoleButtons (uid : string, r : Role) {
+        const col = new Discord.MessageActionRow();
+        const runi = this.langTxt.role_uni[r];
+        const now = this.members[uid].wishRole[r];
+        for(let i = 1; i <= 5; ++i) {
+            if (i == now) {
+                col.addComponents(Util.make_button(i + "_" + r, this.langTxt.role[r as Role] + runi, {style : "green", emoji : this.langTxt.react.num[i]}));
+            } else {
+                col.addComponents(Util.make_button(i + "_" + r, runi, {style : "black", emoji : this.langTxt.react.num[i]}));
             }
-            components.push(col);
         }
-        return components;
+        return col;
     }
     wishRoleCheck(interaction : Discord.ButtonInteraction){
         const value = parseInt(interaction.customId[0]);
@@ -1241,7 +1249,15 @@ export default class GameState {
         
         this.members[interaction.user.id].wishRole[roleName] = value;
         if (interaction.message.type != "DEFAULT" ) return;
-        const components = this.makeWishRoleBottons(interaction.user.id);
+
+        const components = interaction.message.components;
+        const new_buttons = this.makeWishRoleButtons(interaction.user.id, roleName);
+        for (let i = 0; i < components.length; ++i) {
+            if (components[i].components[0].customId === "1_" + roleStr) {
+                components[i] = new_buttons;
+                break;
+            }
+        }
         interaction.update({components : components});
     }
 
@@ -1669,12 +1685,12 @@ export default class GameState {
             Black_buttons.push(Util.make_button("black_" + uid, this.members[uid].nickname, {style : "black"}));
             if (this.members[uid].isLiving) liveNum++;
         }
-        const components = [
+        const components_arr = Util.arrange_components([
             ...Util.arrange_buttons(CO_buttons   ),
             ...Util.arrange_buttons(White_buttons),
             ...Util.arrange_buttons(Black_buttons),
             new Discord.MessageActionRow().addComponents(Util.make_button("cut_time", this.langTxt.p4.cut_time_label, {style : "red"}))
-        ];
+        ]);
         const req 
             = (this.ruleSetting.day.cut_time == "all" ?     liveNum
             : this.ruleSetting.day.cut_time == "majority" ? Math.floor(liveNum/2)+1
@@ -1685,15 +1701,22 @@ export default class GameState {
             if(!this.members[uid].isLiving) continue;
             const uch = this.members[uid].uchannel;
             if (uch == null) continue;
-            const sent_message = await uch.send({
-                embeds: [new Discord.MessageEmbed({
-                    title       : this.langTxt.p4.co_call_cuttime_title,
-                    color       : this.langTxt.sys.system_color,
-                    description : txt,
-                })],
-                components: components
-            });
-            this.interactControllers[InteractType.CO_Call][sent_message.id] = sent_message;
+            for(let i = 0; i < components_arr.length; i++) {
+                let sent_message;
+                if (i == 0) {
+                    sent_message = await uch.send({
+                        embeds: [new Discord.MessageEmbed({
+                            title       : this.langTxt.p4.co_call_cuttime_title,
+                            color       : this.langTxt.sys.system_color,
+                            description : txt,
+                        })],
+                        components: components_arr[i]
+                    });
+                } else {
+                    sent_message = await uch.send({components: components_arr[i]});
+                }
+                this.interactControllers[InteractType.CO_Call][sent_message.id] = sent_message;
+            }
         }
     }
     async makeDictatorController(){

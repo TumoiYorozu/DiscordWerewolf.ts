@@ -96,6 +96,15 @@ export function arrange_buttons(buttons : Discord.MessageButton[]) {
     }
     return components;
 }
+export function arrange_components(c : Discord.MessageActionRow[]) {
+    const res : Discord.MessageActionRow[][] = [];
+    for (let i = 0; i < c.length; ++i) {
+        const j = Math.floor(i / 5);
+        if (i % 5 == 0) res[j] = [];
+        res[j].push(c[i]);
+    }
+    return res;
+}
 
 export function updateHashValueWithFormat(attribute : string, value : any, runtimeType : JsonRuntimeType, hash : any) : boolean {
     const delimiters = ['/', '\\', '.'];
