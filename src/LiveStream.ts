@@ -267,6 +267,7 @@ export default class LiveStream {
             guildId: this.channels2.DeadVoice.guildId,
             channelId: this.channels2.DeadVoice.id,
             adapterCreator: this.guild2.voiceAdapterCreator,
+            group: "2",
             selfMute: false,
         });
         if(conn2 == null) return false;
