@@ -15,13 +15,14 @@ Discord 上で人狼ゲームを行うための GM bot です．
 [コマンド一覧](../../wiki/コマンド一覧)
 
 # 更新情報
-2022/7/14 discord.js v13 に対応しました！  
-それに伴い、動作確認 node バージョンなどが変わりました。
+- 2022/11/20 Discord の仕様変更により、 Bot に `Message content intent`の権限が必要になりました。
+
+[Discord Developer Portal](https://discord.com/developers/applications) から、自分の bot を選択した後、`左のSettings の Bot` → `MESSAGE CONTENT INTENT` を `オン` にして下さい。
+
+
+- 2022/7/14 discord.js v13 に対応しました！  それに伴い、動作確認 node バージョンなどが変わりました。
 
 また、discord.js v13 に音声の不具合が存在したため一部音声関係の処理に不具合がありましたが、@discordjs/voice の v0.11.0 が公開されたことにより解消されました。この bot はv0.11に対応しています。
-
-2022/11/20
-Discord の仕様変更により、 Bot に `Message content intent`の権限が必要になりました。[Discord Developer Portal](https://discord.com/developers/applications) から、自分の bot を選択した後、`左のSettings の Bot` → `MESSAGE CONTENT INTENT` を `オン` にして下さい。
 
 # 概要
 
