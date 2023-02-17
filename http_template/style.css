@@ -72,7 +72,7 @@ body {
 
 .nospeak .avatar {
   border: 5px solid #555555;
-  filter: brightness(40%);
+  /* filter: brightness(40%); */
 }
 
 @keyframes key1 {
