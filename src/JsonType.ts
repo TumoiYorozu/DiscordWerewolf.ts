@@ -14,6 +14,7 @@ export const RolesStr = obj({
     Dictator       : str,
     Baker          : str,
     Communicatable : str,
+    Fanatic        : str,
 });
 export type RolesStrType = TsType<typeof RolesStr>;
 const RolesStrs = obj({
@@ -27,6 +28,7 @@ const RolesStrs = obj({
     Dictator       : arr(str),
     Baker          : arr(str),
     Communicatable : arr(str),
+    Fanatic        : arr(str),
 });
 const RolesOptNum = obj({
     Villager       : opt(num),
@@ -39,6 +41,7 @@ const RolesOptNum = obj({
     Dictator       : opt(num),
     Baker          : opt(num),
     Communicatable : opt(num),
+    Fanatic        : opt(num),
 });
 
 const fortune_or_priest = obj({

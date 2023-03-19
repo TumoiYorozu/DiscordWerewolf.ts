@@ -27,7 +27,8 @@ const Role = stringToEnum([
     'Mason',
     'Dictator',
     'Baker',
-    'Communicatable'
+    'Communicatable',
+    'Fanatic',
 ]);
 type Role = keyof typeof RolesStr.tsType;
 
@@ -52,6 +53,7 @@ function getDefaultTeams(r : Role){
         case Role.Werewolf:
         case Role.Traitor:
         case Role.Communicatable:
+        case Role.Fanatic:
             return TeamNames.Evil;
         default:
             assertUnreachable(r);
@@ -68,6 +70,7 @@ function whatTeamFortuneResult(r : Role){
         case Role.Baker:
         case Role.Traitor:
         case Role.Communicatable:
+        case Role.Fanatic:
             return TeamNames.Good;
         case Role.Werewolf:
             return TeamNames.Evil;
@@ -433,6 +436,7 @@ export default class GameState {
             if(s[i] == 'W') this.addRole(Role.Werewolf);
             if(s[i] == 'T') this.addRole(Role.Traitor);
             if(s[i] == 'C') this.addRole(Role.Communicatable);
+            if(s[i] == 'F') this.addRole(Role.Fanatic);
         }
         console.log(this.defaultRoles);
         this.sendWantNums(this.channels.Living);
@@ -1381,6 +1385,20 @@ export default class GameState {
 
         this.resetReactedMember();
         this.p2CanForceStartGame = false;
+        
+        const werewolf_role_str = Role.Werewolf;
+        const werewolf_team = getDefaultTeams(werewolf_role_str);
+        const werewolf_embed = new Discord.MessageEmbed({
+            title       : format(this.langTxt.werewolf.start_room_title, {names : WerewolfNames}),
+            description : this.langTxt.role_descs[werewolf_role_str],
+            color       : this.langTxt.team_color[werewolf_team],
+            thumbnail   : {url: this.langTxt.role_img[werewolf_role_str]},
+            fields      : [WerewolfRoomField],
+        });
+        { // for Werewolf
+            this.channels.Werewolf.send({embeds: [werewolf_embed]});
+        }
+
         Object.keys(this.members).forEach(async uid => {
             if(!(uid in this.members)) return this.err();
             const uch = this.members[uid].uchannel;
@@ -1405,6 +1423,10 @@ export default class GameState {
                 author      : {name: this.members[uid].nickname, iconURL: this.members[uid].user.displayAvatarURL()},
             });
             uch.send({embeds: [embed]});
+            
+            if (this.members[uid].role == Role.Fanatic) {
+                uch.send({embeds: [werewolf_embed]});
+            }
             if(enable_confirmation){
                 const sent_message = await uch.send({
                     content : getUserMentionStr(this.members[uid].user) + " " + this.langTxt.p2.announce_next,
@@ -1413,18 +1435,6 @@ export default class GameState {
                 this.interactControllers[InteractType.Accept][sent_message.id] = sent_message;
             }
         });
-        { // for Werewolf
-            const role_str = Role.Werewolf;
-            const team = getDefaultTeams(role_str);
-            const embed = new Discord.MessageEmbed({
-                title       : format(this.langTxt.werewolf.start_room_title, {names : WerewolfNames}),
-                description : this.langTxt.role_descs[role_str],
-                color       : this.langTxt.team_color[team],
-                thumbnail   : {url: this.langTxt.role_img[role_str]},
-                fields      : [WerewolfRoomField],
-            });
-            this.channels.Werewolf.send({embeds: [embed]});
-        }
         if(enable_confirmation){
             this.channels.Living.send({embeds:[{
                 title       : format(this.langTxt.p2.done_preparations, {sec : this.ruleSetting.confirmation_sec}),

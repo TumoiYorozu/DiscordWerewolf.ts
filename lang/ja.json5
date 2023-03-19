@@ -125,7 +125,8 @@
         Mason     : "双子",
         Dictator  : "独裁者",
         Baker     : "パン屋",
-        Communicatable : "ささやく狂人"
+        Communicatable : "ささやく狂人",
+        Fanatic : "狂信者"
     },
     emo : {
         Villager  : ":man:",
@@ -137,7 +138,8 @@
         Mason     : ":people_holding_hands:",
         Dictator  : ":triumph:",
         Baker     : ":bread:",
-        Communicatable : ":genie:"
+        Communicatable : ":genie:",
+        Fanatic : ":vampire:"
     },
     // https://twemoji.maxcdn.com/2/test/preview.html
     role_img : {
@@ -151,6 +153,7 @@
         Dictator       : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f624.png",
         Baker          : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f35e.png",
         Communicatable : "https://twemoji.maxcdn.com/v/12.1.5/72x72/1f9de-200d-2642-fe0f.png",
+        Fanatic        : "https://cdn.jsdelivr.net/gh/twitter/twemoji@v12.1.5/assets/72x72/1f9db.png",
     },
     role_uni : {
         Villager       : "👨",
@@ -163,6 +166,7 @@
         Dictator       : "😤",
         Baker          : "🍞",
         Communicatable : "🧞",
+        Fanatic        : "🧛",
     },
     role_descs : {
         Villager       : "なんの能力も持たないただの人です．",
@@ -174,7 +178,8 @@
         Mason          : "ペア同士，相手が双子であることが分かります．",
         Dictator       : "1度だけ昼の議論を即刻中止し，自分1人だけで処刑者を決定することが出来ます．",
         Baker          : "生存している限り，朝にパンを配達します．",
-        Communicatable : "人狼チャットで人狼とコミュニケーションすることが出来ます．"
+        Communicatable : "人狼チャットで人狼とコミュニケーションすることが出来ます．",
+        Fanatic        : "誰が人狼か知っています。人狼は誰が狂信者か分かりません．",
     },
 
     team_name : {
