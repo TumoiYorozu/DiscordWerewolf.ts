@@ -575,7 +575,7 @@ export default class GameState {
         }
 
         this.channels.DebugLog.permissionOverwrites.set(permGMonly);
-        this.channels.GameLog.permissionOverwrites.set(permGMonly); // or permReadOnly
+        this.channels.GameLog.permissionOverwrites.set(permReadOnly); // or permReadOnly
 
         let permLiving      : Discord.OverwriteResolvable[] = [];
         let permLivingVoice : Discord.OverwriteResolvable[] = [];
@@ -1882,7 +1882,7 @@ export default class GameState {
         embed.fields = this.makeCoCallLogFields();
 
         this.channels.Living.send({embeds:[embed]});
-        this.channels.GameLog.send({embeds:[embed]});
+        // this.channels.GameLog.send({embeds:[embed]});
         this.httpGameState.updateMembers();
     }
     async dictatorCheck(interaction : Discord.ButtonInteraction) {
