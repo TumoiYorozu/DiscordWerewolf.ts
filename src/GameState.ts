@@ -183,19 +183,17 @@ const RW_dny : Discord.Permissions= new Discord.Permissions([]);
 const ReadOnly_alw : Discord.Permissions= new Discord.Permissions(
     ['VIEW_CHANNEL', 'CONNECT']);
 const ReadOnly_dny : Discord.Permissions= new Discord.Permissions(
-    ['ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
+    ['ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK', 'MANAGE_THREADS', 'USE_PUBLIC_THREADS', 'CREATE_PUBLIC_THREADS', 'USE_PRIVATE_THREADS', 'CREATE_PRIVATE_THREADS', 'SEND_MESSAGES_IN_THREADS']);
 
 const ViewOnly_alw : Discord.Permissions= new Discord.Permissions(
     ['VIEW_CHANNEL', ]);
 const ViewOnly_dny : Discord.Permissions= new Discord.Permissions(
-    ['CONNECT', 'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
+    ['CONNECT', 'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK', 'MANAGE_THREADS', 'USE_PUBLIC_THREADS', 'CREATE_PUBLIC_THREADS', 'USE_PRIVATE_THREADS', 'CREATE_PRIVATE_THREADS', 'SEND_MESSAGES_IN_THREADS']);
     
 const NoAccess_alw : Discord.Permissions= new Discord.Permissions([]);
 const NoAccess_dny : Discord.Permissions= new Discord.Permissions(
     ['VIEW_CHANNEL', 'CONNECT',
-    'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK']);
-
-
+    'ADD_REACTIONS', 'SEND_MESSAGES', 'SPEAK', 'MANAGE_THREADS', 'USE_PUBLIC_THREADS', 'CREATE_PUBLIC_THREADS', 'USE_PRIVATE_THREADS', 'CREATE_PRIVATE_THREADS', 'SEND_MESSAGES_IN_THREADS']);
 
 
 const enum Perm {NoAccess, ReadOnly, ViewOnly, RW, Admin}
